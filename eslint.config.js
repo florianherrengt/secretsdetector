@@ -18,6 +18,7 @@ export default [
       ],
 
       "custom/no-raw-functions": "error",
+      "custom/no-mutable-variables": "error",
     },
   },
 

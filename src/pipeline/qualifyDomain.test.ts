@@ -15,17 +15,9 @@ const waitForServer = z
 		const startedAt = Date.now();
 
 		while (true) {
-			let isHealthy = false;
-
-			try {
-				const response = await fetch(`http://localhost:${TEST_PORT}/healthz`);
-
-				if (response.ok) {
-					isHealthy = true;
-				}
-			} catch {
-				isHealthy = false;
-			}
+			const isHealthy = await fetch(`http://localhost:${TEST_PORT}/healthz`)
+				.then((r) => r.ok)
+				.catch(() => false);
 
 			if (isHealthy) {
 				return;
@@ -114,7 +106,7 @@ testApp.get("/scenarios/tiny", (c) => {
 });
 
 describe("qualifyDomain", () => {
-	let server: TestServer;
+	let server: TestServer; // eslint-disable-line custom/no-mutable-variables
 
 	beforeAll(async () => {
 		server = serve({ fetch: testApp.fetch, port: TEST_PORT });

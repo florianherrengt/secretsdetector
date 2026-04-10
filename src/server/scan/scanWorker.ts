@@ -113,7 +113,7 @@ const processScanQueueJob = z
 		}
 	});
 
-let scanWorker: Worker<ScanQueueJobData, ScanWorkerResult> | null = null;
+let scanWorker: Worker<ScanQueueJobData, ScanWorkerResult> | null = null; // eslint-disable-line custom/no-mutable-variables
 
 export const startScanWorker = z
 	.function()

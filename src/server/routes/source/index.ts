@@ -39,12 +39,10 @@ sourceRoutes.get(
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement((c) => {
 			const query = sourceQuerySchema.safeParse(c.req.query());
-			let selectedSource = query.success ? query.data.source : undefined;
 			const sources = listSources();
-
-			if (selectedSource !== undefined && sources.every((s) => s.key !== selectedSource)) {
-				selectedSource = undefined;
-			}
+			const requestedSource = query.success ? query.data.source : undefined;
+			const selectedSource =
+				requestedSource !== undefined && sources.some((s) => s.key === requestedSource) ? requestedSource : undefined;
 
 			const viewProps = sourceInputPagePropsSchema.parse({
 				sources: sources.map((s) => toSourceListItem(s)),

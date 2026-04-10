@@ -222,6 +222,42 @@ The product now supports multi-source ingestion with a first-class debug surface
 
 ---
 
+## v0.11 — Passwordless Auth + Inspectable Email (Step 10)
+
+**Added magic link authentication with a fully debuggable email layer**
+
+- Introduced pluggable email system:
+  - `EmailProvider` interface with mock and SES implementations
+  - Mock provider stores emails in DB for local inspection
+  - SES provider wraps AWS SDK for production delivery
+  - Provider selected automatically by environment
+
+- Implemented passwordless authentication:
+  - Magic link flow: request link → receive email → verify token → create session
+  - Cryptographic token generation with SHA-256 hashing (tokens never stored raw)
+  - One-time tokens with 15-minute expiry, atomic consumption via `UPDATE...RETURNING`
+  - Server-side sessions with 30-day expiry stored in PostgreSQL
+  - Secure cookie handling (HttpOnly, SameSite=Lax, conditional Secure flag)
+
+- Added debug tooling for local development:
+  - `GET /debug/emails` — inspect all mock emails
+  - `POST /debug/emails/clear` — reset state
+  - `GET /auth/whoami` — verify current session
+
+- Protected sensitive routes with `requireAuth` middleware:
+  - `/scan/*` and `/admin/queues` now require authentication
+
+- Built comprehensive security test suite:
+  - Token replay, forgery, tampering, and fuzz rejection
+  - Parallel replay (race condition) prevention
+  - Session isolation and enumeration protection
+  - 14-character token fuzzing across edge cases
+
+**Outcome:**
+The system now has production-ready passwordless auth that is fully testable locally with zero external dependencies, enabling real user flows without friction.
+
+---
+
 # Current State
 
 The system now supports:
@@ -232,3 +268,4 @@ The system now supports:
 - processing scans through an inspectable queue with retry visibility
 - debugging qualification logic and deterministic scenarios
 - discovering domains from external sources and feeding them into the scan pipeline
+- authenticating users via passwordless magic links with inspectable local email delivery

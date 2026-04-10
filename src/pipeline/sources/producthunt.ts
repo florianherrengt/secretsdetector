@@ -123,11 +123,7 @@ const normalizeHostname = z
 			return null;
 		}
 
-		let hostname = parsed.hostname.toLowerCase();
-
-		if (hostname.startsWith("www.")) {
-			hostname = hostname.slice(4);
-		}
+		const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
 
 		if (hostname.length === 0 || hostname === "localhost") {
 			return null;
@@ -355,6 +351,7 @@ const runProductHuntSourcing = z
 
 		const fetchStart = Date.now();
 		const posts: ProductHuntPost[] = [];
+		// eslint-disable-next-line custom/no-mutable-variables -- pagination cursor must advance between requests.
 		let cursor: string | null = null;
 
 		for (let page = 0; page < input.maxPages; page++) {
@@ -433,6 +430,7 @@ const runProductHuntSourcing = z
 		}
 
 		const domains = new Set<string>();
+		// eslint-disable-next-line custom/no-mutable-variables -- shared index coordinates bounded worker fan-out.
 		let cursorIndex = 0;
 
 		const worker = async () => {

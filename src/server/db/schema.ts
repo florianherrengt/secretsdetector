@@ -37,3 +37,36 @@ export const findings = pgTable("findings", {
 	fingerprint: text("fingerprint").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
 });
+
+export const mockEmails = pgTable("mock_emails", {
+	id: uuid("id").primaryKey(),
+	to: text("to").notNull(),
+	subject: text("subject").notNull(),
+	html: text("html").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
+});
+
+export const users = pgTable("users", {
+	id: uuid("id").primaryKey(),
+	email: text("email").notNull().unique(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
+});
+
+export const loginTokens = pgTable("login_tokens", {
+	id: uuid("id").primaryKey(),
+	email: text("email").notNull(),
+	tokenHash: text("token_hash").notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
+});
+
+export const sessions = pgTable("sessions", {
+	id: uuid("id").primaryKey(),
+	userId: uuid("user_id")
+		.notNull()
+		// eslint-disable-next-line custom/no-raw-functions
+		.references(() => users.id),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
+});

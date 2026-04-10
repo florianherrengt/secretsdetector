@@ -8,13 +8,14 @@
 		"start": "node dist/server/app.js",
 		"prepare": "node scripts/install-hooks.mjs",
 		"typecheck": "tsc --noEmit",
-		"lint": "eslint src/",
+		"lint": "eslint src/ tests/",
 		"test": "vitest run",
 		"test:e2e": "playwright test",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
+		"@aws-sdk/client-ses": "^3.1028.0",
 		"@bull-board/api": "^6.21.0",
 		"@bull-board/hono": "^6.21.0",
 		"@hono/node-server": "^1.19.13",

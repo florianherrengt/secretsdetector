@@ -57,12 +57,11 @@ describe("GET /dedupe", () => {
 });
 
 describe("GET /admin/queues", () => {
-	it("returns bull board html", async () => {
+	it("returns 401 when not authenticated", async () => {
 		const res = await app.request("/admin/queues");
-		expect(res.status).toBe(200);
-		expect(res.headers.get("content-type")).toContain("text/html");
-		const html = await res.text();
-		expect(html).toContain("Bull Dashboard");
+		expect(res.status).toBe(401);
+		const body = await res.json();
+		expect(body).toHaveProperty("error");
 	});
 });
 

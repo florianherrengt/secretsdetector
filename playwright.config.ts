@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 
-const domain = process.env.DOMAIN ?? "127.0.0.1:4173";
+const domain = process.env.DOMAIN ?? "127.0.0.1:3000";
 const baseURL = domain.includes("://") ? domain : `http://${domain}`;
-const port = Number(process.env.PORT) || 4173;
+const port = Number(process.env.PORT) || 3000;
 
 export default defineConfig({
 	testDir: "./tests/e2e",

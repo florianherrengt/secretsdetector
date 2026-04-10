@@ -8,6 +8,20 @@
       "when": 1775781304893,
       "tag": "0000_groovy_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775825845801,
+      "tag": "0001_high_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775826880323,
+      "tag": "0002_wet_adam_warlock",
+      "breakpoints": true
     }
   ]
 }

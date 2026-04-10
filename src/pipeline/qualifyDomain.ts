@@ -22,11 +22,8 @@ const isValidHostname = z
 	.args(z.string())
 	.returns(z.boolean())
 	.implement((rawHostname) => {
-		let hostname = rawHostname.trim().toLowerCase();
-
-		if (hostname.endsWith(".")) {
-			hostname = hostname.slice(0, -1);
-		}
+		const trimmed = rawHostname.trim().toLowerCase();
+		const hostname = trimmed.endsWith(".") ? trimmed.slice(0, -1) : trimmed;
 
 		if (hostname === "localhost") {
 			return true;
@@ -89,13 +86,19 @@ const normalizeQualificationTarget = z
 			return null;
 		}
 
-		let targetUrl: URL;
+		const parsed = (() => {
+			try {
+				return new URL(`https://${input}`);
+			} catch {
+				return null;
+			}
+		})();
 
-		try {
-			targetUrl = new URL(`https://${input}`);
-		} catch {
+		if (!parsed) {
 			return null;
 		}
+
+		const targetUrl = parsed;
 
 		const normalizedHostname = targetUrl.hostname.toLowerCase();
 
@@ -138,11 +141,11 @@ const readResponseTextWithLimit = z
 
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
-		let bytesRead = 0;
-		let body = "";
+		let bytesRead = 0; // eslint-disable-line custom/no-mutable-variables
+		let body = ""; // eslint-disable-line custom/no-mutable-variables
 
 		while (true) {
-			let chunkResult;
+			let chunkResult; // eslint-disable-line custom/no-mutable-variables
 
 			try {
 				chunkResult = await reader.read();
@@ -189,15 +192,13 @@ const fetchHomepage = z
 		)
 	)
 	.implement(async (url) => {
-		let response: Response;
+		const response = await fetch(url, {
+			method: "GET",
+			signal: AbortSignal.timeout(HOMEPAGE_TIMEOUT_MS),
+			redirect: "follow"
+		}).catch(() => null);
 
-		try {
-			response = await fetch(url, {
-				method: "GET",
-				signal: AbortSignal.timeout(HOMEPAGE_TIMEOUT_MS),
-				redirect: "follow"
-			});
-		} catch {
+		if (!response) {
 			return { kind: "fetch_failed" };
 		}
 

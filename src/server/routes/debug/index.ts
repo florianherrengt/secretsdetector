@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { desc } from "drizzle-orm";
 import { render } from "../../../lib/response.js";
 import { getSource, debugSource } from "../../../pipeline/sources/index.js";
 import { sourceListItemSchema } from "../../../views/pages/source.js";
@@ -8,6 +9,8 @@ import {
 	sourceDebugPagePropsSchema,
 	SourceDebugPage
 } from "../../../views/pages/sourceDebug.js";
+import { db } from "../../db/client.js";
+import { mockEmails } from "../../db/schema.js";
 
 const debugRoutes = new Hono();
 
@@ -73,6 +76,30 @@ debugRoutes.get(
 			});
 
 			return c.html(render(SourceDebugPage, viewProps));
+		})
+);
+
+debugRoutes.get(
+	"/emails",
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			const emails = await db.select().from(mockEmails).orderBy(desc(mockEmails.createdAt));
+			return c.json(emails);
+		})
+);
+
+debugRoutes.post(
+	"/emails/clear",
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			await db.delete(mockEmails);
+			return c.json({ success: true });
 		})
 );
 

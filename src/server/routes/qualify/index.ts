@@ -28,11 +28,15 @@ const normalizeSubmittedDomain = z
 		const trimmed = rawDomain.trim();
 
 		if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-			let parsedUrl: URL;
+			const parsedUrl = (() => {
+				try {
+					return new URL(trimmed);
+				} catch {
+					return null;
+				}
+			})();
 
-			try {
-				parsedUrl = new URL(trimmed);
-			} catch {
+			if (!parsedUrl) {
 				return trimmed.replace(/^https?:\/\//i, "");
 			}
 

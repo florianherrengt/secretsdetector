@@ -4,6 +4,7 @@ import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { HonoAdapter } from "@bull-board/hono";
 import { scanQueue } from "../../../scan/scanQueue.js";
+import { requireAuth } from "../../../auth/middleware.js";
 
 const adminQueueRoutes = new Hono();
 
@@ -15,6 +16,7 @@ createBullBoard({
 	serverAdapter: bullBoardServerAdapter
 });
 
+adminQueueRoutes.use("*", requireAuth);
 adminQueueRoutes.route("/", bullBoardServerAdapter.registerPlugin());
 
 export default adminQueueRoutes;

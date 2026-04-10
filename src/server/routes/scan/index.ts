@@ -17,6 +17,7 @@ import {
 	upsertDomainRecord
 } from "../../scan/scanJob.js";
 import { enqueueScanJob } from "../../scan/scanQueue.js";
+import { requireAuth } from "../../auth/middleware.js";
 
 const scanRoutes = new Hono();
 
@@ -30,6 +31,7 @@ const scanParamsSchema = z.object({
 
 scanRoutes.post(
 	"/",
+	requireAuth,
 	z
 		.function()
 		.args(z.custom<Context>())
@@ -71,6 +73,7 @@ scanRoutes.post(
 
 scanRoutes.get(
 	"/:scanId",
+	requireAuth,
 	z
 		.function()
 		.args(z.custom<Context>())

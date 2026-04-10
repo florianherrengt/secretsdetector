@@ -168,14 +168,10 @@ export const runSourcePipeline = z
 
 		const normalizedList = Array.from(normalizedSet);
 
-		let existingRows: { hostname: string }[] = [];
-
-		if (normalizedList.length > 0) {
-			existingRows = await db
-				.select({ hostname: domains.hostname })
-				.from(domains)
-				.where(inArray(domains.hostname, normalizedList));
-		}
+		const existingRows: { hostname: string }[] =
+			normalizedList.length > 0
+				? await db.select({ hostname: domains.hostname }).from(domains).where(inArray(domains.hostname, normalizedList))
+				: [];
 
 		const knownHostnames = new Set(existingRows.map((r) => r.hostname));
 		const newDomains = normalizedList.filter((d) => !knownHostnames.has(d));
@@ -192,7 +188,7 @@ export const runSourcePipeline = z
 		}
 
 		const qualified = qualificationResults.filter((r) => r.isQualified);
-		let enqueued = 0;
+		const enqueuedDomains: string[] = [];
 		const enqueueErrors: { domain: string; error: string }[] = [];
 
 		for (const q of qualified) {
@@ -202,7 +198,7 @@ export const runSourcePipeline = z
 				const jobPayload = scanQueueJobDataSchema.parse({ domain: q.domain });
 
 				await enqueueScanJob(scanRecord.id, jobPayload);
-				enqueued++;
+				enqueuedDomains.push(q.domain);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "Unknown enqueue error";
 				enqueueErrors.push({ domain: q.domain, error: message });
@@ -217,7 +213,7 @@ export const runSourcePipeline = z
 			alreadyKnown: knownHostnames.size,
 			newDomains: newDomains.length,
 			qualificationResults,
-			enqueued,
+			enqueued: enqueuedDomains.length,
 			enqueueErrors
 		});
 	});
