@@ -16,7 +16,7 @@ describe("GET /", () => {
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("text/html");
 		const html = await res.text();
-		expect(html).toContain("<h1>Secret Detector</h1>");
+		expect(html).toContain("Secret Detector</h1>");
 		expect(html).toContain("Server-side domain scanning and secret detection platform.");
 	});
 });

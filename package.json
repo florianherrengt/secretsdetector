@@ -8,16 +8,22 @@
 		"start": "node dist/server/app.js",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src/",
-		"test": "vitest run"
+		"test": "vitest run",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.13",
+		"dotenv": "^17.4.1",
+		"drizzle-orm": "^0.45.2",
 		"hono": "^4.7.4",
+		"pg": "^8.20.0",
 		"zod": "^3.24.2"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@types/node": "^22.13.9",
+		"drizzle-kit": "^0.31.10",
 		"eslint": "^10.2.0",
 		"tsx": "^4.19.3",
 		"typescript": "^5.8.2",
