@@ -1,0 +1,231 @@
+import { z } from "zod";
+import { inArray } from "drizzle-orm";
+import { db } from "../../server/db/client.js";
+import { domains } from "../../server/db/schema.js";
+import {
+	createPendingScanRecord,
+	scanQueueJobDataSchema,
+	upsertDomainRecord
+} from "../../server/scan/scanJob.js";
+import { enqueueScanJob } from "../../server/scan/scanQueue.js";
+import { qualifyDomain } from "../qualifyDomain.js";
+import { crtshSource } from "./crtsh.js";
+import type {
+	DomainSourceDefinition,
+	QualificationResult,
+	SourcePipelineResult,
+	SourcePreviewResult
+} from "./types.js";
+import {
+	qualificationResultSchema,
+	sourcePipelineResultSchema,
+	sourcePreviewResultSchema
+} from "./types.js";
+
+const sourceRegistry = new Map<string, DomainSourceDefinition>();
+
+export const registerSource = z
+	.function()
+	.args(z.custom<DomainSourceDefinition>())
+	.returns(z.void())
+	.implement((source) => {
+		sourceRegistry.set(source.key, source);
+	});
+
+export const getSource = z
+	.function()
+	.args(z.string())
+	.returns(z.custom<DomainSourceDefinition>().optional())
+	.implement((key) => {
+		return sourceRegistry.get(key);
+	});
+
+export const listSources = z
+	.function()
+	.returns(z.array(z.custom<DomainSourceDefinition>()))
+	.implement(() => {
+		return Array.from(sourceRegistry.values());
+	});
+
+registerSource(crtshSource);
+
+export const previewSource = z
+	.function()
+	.args(z.object({ sourceKey: z.string(), input: z.record(z.unknown()) }))
+	.returns(z.promise(sourcePreviewResultSchema))
+	.implement(async ({ sourceKey, input }) => {
+		const source = sourceRegistry.get(sourceKey);
+
+		if (source === undefined) {
+			return sourcePreviewResultSchema.parse({
+				sourceKey,
+				fetchError: `Unknown source: ${sourceKey}`,
+				fetchedEntries: 0,
+				domains: []
+			});
+		}
+
+		const parsedInput = source.inputSchema.safeParse(input);
+
+		if (!parsedInput.success) {
+			return sourcePreviewResultSchema.parse({
+				sourceKey,
+				fetchError: `Invalid input: ${parsedInput.error.issues[0]?.message ?? "unknown"}`,
+				fetchedEntries: 0,
+				domains: []
+			});
+		}
+
+		const fetchResult = await source.fetch(parsedInput.data);
+
+		if (!fetchResult.ok) {
+			return sourcePreviewResultSchema.parse({
+				sourceKey,
+				fetchError: fetchResult.error,
+				fetchedEntries: 0,
+				domains: []
+			});
+		}
+
+		return sourcePreviewResultSchema.parse({
+			sourceKey,
+			fetchedEntries: fetchResult.fetchedEntries,
+			domains: fetchResult.domains
+		});
+	});
+
+export const runSourcePipeline = z
+	.function()
+	.args(z.object({ sourceKey: z.string(), input: z.record(z.unknown()) }))
+	.returns(z.promise(sourcePipelineResultSchema))
+	.implement(async ({ sourceKey, input }) => {
+		const source = sourceRegistry.get(sourceKey);
+
+		if (source === undefined) {
+			return sourcePipelineResultSchema.parse({
+				sourceKey,
+				fetchError: `Unknown source: ${sourceKey}`,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				alreadyKnown: 0,
+				newDomains: 0,
+				qualificationResults: [],
+				enqueued: 0,
+				enqueueErrors: []
+			});
+		}
+
+		const parsedInput = source.inputSchema.safeParse(input);
+
+		if (!parsedInput.success) {
+			return sourcePipelineResultSchema.parse({
+				sourceKey,
+				fetchError: `Invalid input: ${parsedInput.error.issues[0]?.message ?? "unknown"}`,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				alreadyKnown: 0,
+				newDomains: 0,
+				qualificationResults: [],
+				enqueued: 0,
+				enqueueErrors: []
+			});
+		}
+
+		const fetchResult = await source.fetch(parsedInput.data);
+
+		if (!fetchResult.ok) {
+			return sourcePipelineResultSchema.parse({
+				sourceKey,
+				fetchError: fetchResult.error,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				alreadyKnown: 0,
+				newDomains: 0,
+				qualificationResults: [],
+				enqueued: 0,
+				enqueueErrors: []
+			});
+		}
+
+		const rawDomains = fetchResult.domains;
+
+		const normalizedSet = new Set<string>();
+
+		for (const raw of rawDomains) {
+			const base = source.normalizeDomain(raw);
+
+			if (base !== null) {
+				normalizedSet.add(base);
+			}
+		}
+
+		const normalizedList = Array.from(normalizedSet);
+
+		let existingRows: { hostname: string }[] = [];
+
+		if (normalizedList.length > 0) {
+			existingRows = await db
+				.select({ hostname: domains.hostname })
+				.from(domains)
+				.where(inArray(domains.hostname, normalizedList));
+		}
+
+		const knownHostnames = new Set(existingRows.map((r) => r.hostname));
+		const newDomains = normalizedList.filter((d) => !knownHostnames.has(d));
+
+		const qualificationResults: QualificationResult[] = [];
+
+		for (const domain of newDomains) {
+			const result = await qualifyDomain({ domain });
+			qualificationResults.push({
+				domain,
+				isQualified: result.isQualified,
+				reasons: result.reasons
+			});
+		}
+
+		const qualified = qualificationResults.filter((r) => r.isQualified);
+		let enqueued = 0;
+		const enqueueErrors: { domain: string; error: string }[] = [];
+
+		for (const q of qualified) {
+			try {
+				const domainRecord = await upsertDomainRecord(q.domain);
+				const scanRecord = await createPendingScanRecord(domainRecord.id);
+				const jobPayload = scanQueueJobDataSchema.parse({ domain: q.domain });
+
+				await enqueueScanJob(scanRecord.id, jobPayload);
+				enqueued++;
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "Unknown enqueue error";
+				enqueueErrors.push({ domain: q.domain, error: message });
+			}
+		}
+
+		return sourcePipelineResultSchema.parse({
+			sourceKey,
+			fetchedEntries: fetchResult.fetchedEntries,
+			rawDomains: rawDomains.length,
+			normalizedDomains: normalizedList.length,
+			alreadyKnown: knownHostnames.size,
+			newDomains: newDomains.length,
+			qualificationResults,
+			enqueued,
+			enqueueErrors
+		});
+	});
+
+export type {
+	DomainSourceDefinition,
+	QualificationResult,
+	SourcePipelineResult,
+	SourcePreviewResult
+};
+export {
+	qualificationResultSchema,
+	sourcePipelineResultSchema,
+	sourcePreviewResultSchema
+};

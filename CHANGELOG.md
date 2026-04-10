@@ -189,6 +189,23 @@ The product is now non-blocking, observable, and operationally debuggable, makin
 
 ---
 
+## v0.9 — Domain Sourcing (Step 8)
+
+**Added inspectable domain ingestion pipeline with pluggable source registry**
+
+- Built end-to-end source pipeline: fetch domains → extract → normalize → deduplicate → qualify → enqueue
+- Introduced pluggable `DomainSourceDefinition` registry so new sources can be added without modifying shared pipeline logic
+- Implemented first source: crt.sh Certificate Transparency logs, queryable by TLD with safe single-request usage
+- Added domain preview mode to inspect raw fetched domains before committing to a full pipeline run
+- Each domain in preview links directly to the qualification debug page for one-click inspection
+- Pipeline result page renders full stage-by-stage debug output: fetch counts, normalization, deduplication, qualification pass/reject with reasons, enqueue status, and enqueue errors
+- Enqueue failures are captured and displayed individually with domain and error message — nothing fails silently
+
+**Outcome:**
+The system can now discover and ingest domains from external sources, filter them through qualification, and feed them into the scan queue — all with full debug visibility and a clean extension path for future sources.
+
+---
+
 # Current State
 
 The system now supports:
@@ -198,3 +215,4 @@ The system now supports:
 - storing and displaying results across async scan lifecycle states
 - processing scans through an inspectable queue with retry visibility
 - debugging qualification logic and deterministic scenarios
+- discovering domains from external sources and feeding them into the scan pipeline
