@@ -6,6 +6,7 @@
 		"dev": "tsx watch src/server/app.ts",
 		"build": "tsc",
 		"start": "node dist/server/app.js",
+		"prepare": "node scripts/install-hooks.mjs",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src/",
 		"test": "vitest run",

@@ -22,6 +22,59 @@ describe("GET /", () => {
 	});
 });
 
+describe("GET /qualify", () => {
+	it("returns qualification input page", async () => {
+		const res = await app.request("/qualify");
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("text/html");
+		const html = await res.text();
+		expect(html).toContain("Qualification Debug");
+		expect(html).toContain('<form action="/qualify" method="get"');
+		expect(html).toContain('name="domain"');
+	});
+
+	it("renders reasons from qualification result via query string", async () => {
+		const res = await app.request("/qualify?domain=localhost%3A39999%2Fscenarios%2Fpem-key");
+
+		expect(res.status).toBe(200);
+		const html = await res.text();
+		expect(html).toContain("Qualification Result");
+		expect(html).toContain("NOT QUALIFIED");
+		expect(html).toContain("Failed: could not fetch homepage");
+	});
+});
+
+describe("POST /qualify", () => {
+	it("returns validation error when input is invalid", async () => {
+		const res = await app.request("/qualify", {
+			method: "POST",
+			headers: {
+				"content-type": "application/x-www-form-urlencoded"
+			},
+			body: "domain="
+		});
+
+		expect(res.status).toBe(400);
+		const html = await res.text();
+		expect(html).toContain("Invalid domain input.");
+	});
+
+	it("renders reasons from qualification result", async () => {
+		const res = await app.request("/qualify", {
+			method: "POST",
+			headers: {
+				"content-type": "application/x-www-form-urlencoded"
+			},
+			body: "domain=localhost%3A39999%2Fscenarios%2Fpem-key"
+		});
+
+		expect(res.status).toBe(302);
+		expect(res.headers.get("location")).toBe(
+			"/qualify?domain=localhost%3A39999%2Fscenarios%2Fpem-key"
+		);
+	});
+});
+
 describe("GET /sandbox/website", () => {
 	it("returns examples home page", async () => {
 		const res = await app.request("/sandbox/website");

@@ -10,11 +10,17 @@ const demoExamples = [
 	{ slug: "multiple", title: "Multiple scripts, first one leaks" }
 ] as const;
 
-export const HomePage: FC<Record<string, never>> = z
+export const homePagePropsSchema = z.object({
+	domain: z.string().min(1)
+});
+
+export type HomePageProps = z.infer<typeof homePagePropsSchema>;
+
+export const HomePage: FC<HomePageProps> = z
 	.function()
-	.args()
-	.returns(z.custom<ReturnType<FC<Record<string, never>>>>())
-	.implement(() => {
+	.args(homePagePropsSchema)
+	.returns(z.custom<ReturnType<FC<HomePageProps>>>())
+	.implement(({ domain }) => {
 		return (
 			<Layout title="Home">
 				<section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
@@ -32,7 +38,7 @@ export const HomePage: FC<Record<string, never>> = z
 							name="domain"
 							type="text"
 							required
-							placeholder="localhost:3000/sandbox/website/examples/pem-key/"
+							placeholder={`${domain}/sandbox/website/examples/pem-key/`}
 							class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
 						/>
 						<button

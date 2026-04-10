@@ -21,6 +21,7 @@ app.onError(
 );
 
 const port = Number(process.env.PORT) || 3000;
+const domain = z.string().min(1).parse(process.env.DOMAIN ?? `localhost:${port}`);
 
 serve(
 	{ fetch: app.fetch, port },
@@ -29,6 +30,6 @@ serve(
 		.args()
 		.returns(z.void())
 		.implement(() => {
-			console.log(`Server running on http://localhost:${port}`);
+			console.log(`Server running on http://${domain}`);
 		})
 );

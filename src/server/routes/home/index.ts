@@ -5,6 +5,7 @@ import { render } from "../../../lib/response.js";
 import { HomePage } from "../../../views/pages/home.js";
 
 const homeRoutes = new Hono();
+const domainSchema = z.string().min(1);
 
 homeRoutes.get(
 	"/",
@@ -13,7 +14,10 @@ homeRoutes.get(
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement((c) => {
-			return c.html(render(HomePage, {}));
+			const port = Number(process.env.PORT) || 3000;
+			const domain = domainSchema.parse(process.env.DOMAIN ?? `localhost:${port}`);
+
+			return c.html(render(HomePage, { domain }));
 		})
 );
 

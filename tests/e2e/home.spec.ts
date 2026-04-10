@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const domain = process.env.DOMAIN ?? "127.0.0.1:4173";
+
 test("home page loads", async ({ page }) => {
 	await page.goto("/");
 
@@ -11,7 +13,7 @@ test("home page loads", async ({ page }) => {
 test("scan form submits and renders no-findings result", async ({ page }) => {
 	await page.goto("/");
 
-	await page.getByLabel("Domain target").fill("localhost:4173/sandbox/website/examples/no-leak/");
+	await page.getByLabel("Domain target").fill(`${domain}/sandbox/website/examples/no-leak/`);
 	await page.getByRole("button", { name: "Run scan" }).click();
 
 	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
@@ -23,7 +25,7 @@ test("scan form submits and renders no-findings result", async ({ page }) => {
 test("scan form submits and renders redacted finding", async ({ page }) => {
 	await page.goto("/");
 
-	await page.getByLabel("Domain target").fill("localhost:4173/sandbox/website/examples/pem-key/");
+	await page.getByLabel("Domain target").fill(`${domain}/sandbox/website/examples/pem-key/`);
 	await page.getByRole("button", { name: "Run scan" }).click();
 
 	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
