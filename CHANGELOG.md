@@ -4,21 +4,6 @@ Here is a clean, product-focused changelog covering Steps 1 → 4.
 
 # CHANGELOG
 
-## v0.7 — Deduplication Foundation (Step 6)
-
-**Made scan storage idempotent so repeated scans only add genuinely new signals**
-
-- Added fingerprint-based suppression directly in the scan write path to prevent duplicate findings within a single scan run
-- Added cross-scan fingerprint checks before insert so already-known leaks are skipped instead of being stored again
-- Kept deduplication deterministic and inline in synchronous scan flow, without schema changes or background processing
-- Introduced end-to-end deduplication debug flow (`/dedupe`) with stage-by-stage counts for raw findings, internal dedupe, inserted findings, and skipped known matches
-- Updated product navigation/tests so dedupe behavior is visible and verifiable during normal development loops
-
-**Outcome:**
-System now maintains a clean, non-duplicative finding history that is suitable for future monitoring and change tracking.
-
----
-
 ## v0.1 — Foundation (Step 1)
 
 **Introduced core data model and persistence layer**
@@ -169,6 +154,21 @@ System can filter out low-quality domains before scanning, preparing for scalabl
 
 **Outcome:**
 System detects more real frontend leaks while maintaining high-confidence, low-noise findings.
+
+---
+
+## v0.7 — Deduplication Foundation (Step 6)
+
+**Made scan storage idempotent so repeated scans only add genuinely new signals**
+
+- Added fingerprint-based suppression directly in the scan write path to prevent duplicate findings within a single scan run
+- Added cross-scan fingerprint checks before insert so already-known leaks are skipped instead of being stored again
+- Kept deduplication deterministic and inline in synchronous scan flow, without schema changes or background processing
+- Introduced end-to-end deduplication debug flow (`/dedupe`) with stage-by-stage counts for raw findings, internal dedupe, inserted findings, and skipped known matches
+- Updated product navigation/tests so dedupe behavior is visible and verifiable during normal development loops
+
+**Outcome:**
+System now maintains a clean, non-duplicative finding history that is suitable for future monitoring and change tracking.
 
 ---
 

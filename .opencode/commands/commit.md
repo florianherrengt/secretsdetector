@@ -58,7 +58,7 @@ If changes are trivial → do NOT create a new version
 
 ### **Step 3 — Write New Entry**
 
-Append a new section at the top (after `# CHANGELOG`):
+Append a new section at the bottom (after the latest version entry):
 
 - Title: next version + step name
 - Summary: one strong sentence
