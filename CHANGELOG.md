@@ -128,11 +128,40 @@ System can filter out low-quality domains before scanning, preparing for scalabl
 
 ---
 
+## v0.6 — Detection Hardening (Step 5)
+
+**Expanded leak detection coverage while preserving precision**
+
+- Strengthened `scanDomain` detection with layered validation:
+  - pattern match
+  - entropy threshold (for generic tokens)
+  - positive context requirement
+  - negative context rejection
+  - explicit allowlist suppression
+
+- Added entropy-based filtering for generic candidate tokens
+- Added context window validation to favor security-relevant signals (`token`, `secret`, `auth`, `password`, `apiKey`) and reject noisy contexts (`analytics`, `measurement`, `tracking`, `public`, `example`)
+- Added allowlist checks for known safe/public identifiers (for example publishable keys and analytics IDs)
+
+- Expanded scenario fixtures and tests for confidence and false-positive control:
+  - valid generic token detection
+  - short token rejection
+  - publishable key suppression
+  - analytics identifier suppression
+  - weak-context high-entropy value suppression
+
+- Preserved existing redaction behavior so raw secret values are never exposed in snippets
+
+**Outcome:**
+System detects more real frontend leaks while maintaining high-confidence, low-noise findings.
+
+---
+
 # Current State
 
 The system now supports:
 
 - scanning real or simulated websites
-- detecting high-confidence leaks
+- detecting high-confidence leaks with layered validation
 - storing and displaying results
-- debugging qualification logic
+- debugging qualification logic and deterministic scenarios
