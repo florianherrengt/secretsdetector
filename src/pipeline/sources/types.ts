@@ -39,6 +39,40 @@ export const sourcePreviewResultSchema = z.object({
 
 export type SourcePreviewResult = z.infer<typeof sourcePreviewResultSchema>;
 
+export const debugTransformationSchema = z.object({
+	input: z.string(),
+	output: z.string().nullable(),
+	status: z.enum(["ok", "failed", "filtered"]),
+	reason: z.string().optional()
+});
+
+export type DebugTransformation = z.infer<typeof debugTransformationSchema>;
+
+export const sourceDebugResultSchema = z.object({
+	sourceKey: z.string(),
+	fetchError: z.string().optional(),
+	fetchedEntries: z.number().int(),
+	rawDomains: z.number().int(),
+	normalizedDomains: z.number().int(),
+	skippedDomains: z.number().int(),
+	domains: z.array(z.string()),
+	transformations: z.array(debugTransformationSchema),
+	metadata: z.object({
+		timing: z.object({
+			fetchMs: z.number(),
+			normalizeMs: z.number(),
+			totalMs: z.number()
+		}),
+		skips: z.array(z.object({
+			domain: z.string(),
+			reason: z.string()
+		})),
+		sampleRaw: z.array(z.any()).optional()
+	})
+});
+
+export type SourceDebugResult = z.infer<typeof sourceDebugResultSchema>;
+
 export type DomainSourceDefinition = {
 	readonly key: string;
 	readonly label: string;
@@ -46,4 +80,5 @@ export type DomainSourceDefinition = {
 	readonly inputSchema: z.ZodTypeAny;
 	readonly fetch: (input: Record<string, unknown>) => Promise<SourceFetchResult>;
 	readonly normalizeDomain: (domain: string) => string | null;
+	readonly debug?: (input: Record<string, unknown>) => Promise<SourceDebugResult>;
 };

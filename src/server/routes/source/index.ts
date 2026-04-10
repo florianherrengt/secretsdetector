@@ -17,7 +17,8 @@ const sourceRoutes = new Hono();
 
 const sourceQuerySchema = z.object({
 	source: z.string().min(1).optional(),
-	tld: z.string().optional()
+	tld: z.string().optional(),
+	maxPages: z.string().optional()
 });
 
 const sourcePostSchema = z.object({
@@ -77,6 +78,10 @@ sourceRoutes.get(
 
 		if (query.data.tld !== undefined) {
 			input.tld = query.data.tld;
+		}
+
+		if (query.data.maxPages !== undefined) {
+			input.maxPages = query.data.maxPages;
 		}
 
 		const result = await previewSource({ sourceKey: source.key, input });

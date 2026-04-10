@@ -49,17 +49,37 @@ export const SourceInputPage: FC<SourceInputPageProps> = z
 								{isSelected ? (
 									<form method="get" action="/source/preview" class="mt-3 space-y-3">
 										<input type="hidden" name="source" value={s.key} />
-										<label for={`${s.key}-tld`} class="block text-sm font-medium text-gray-700">
-											TLD suffix (e.g. io)
-										</label>
-										<input
-											id={`${s.key}-tld`}
-											name="tld"
-											type="text"
-											required
-											placeholder="io"
-											class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-										/>
+										{s.key === "crtsh" ? (
+											<>
+												<label for={`${s.key}-tld`} class="block text-sm font-medium text-gray-700">
+													TLD suffix (e.g. io)
+												</label>
+												<input
+													id={`${s.key}-tld`}
+													name="tld"
+													type="text"
+													required
+													placeholder="io"
+													class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+												/>
+											</>
+										) : null}
+										{s.key === "producthunt" ? (
+											<>
+												<label for={`${s.key}-maxPages`} class="block text-sm font-medium text-gray-700">
+													Max pages to fetch (1-20)
+												</label>
+												<input
+													id={`${s.key}-maxPages`}
+													name="maxPages"
+													type="number"
+													min="1"
+													max="20"
+													defaultValue="10"
+													class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+												/>
+											</>
+										) : null}
 										<div class="flex gap-2">
 											<button
 												type="submit"
@@ -82,23 +102,43 @@ export const SourceInputPage: FC<SourceInputPageProps> = z
 								)}
 
 								{isSelected ? (
-									<form method="post" action="/source" class="mt-2">
-										<input type="hidden" name="source" value={s.key} />
-										<input
-											id={`${s.key}-tld-pipeline`}
-											name="tld"
-											type="text"
-											required
-											placeholder="io"
-											class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-										/>
-										<button
-											type="submit"
-											class="mt-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white"
-										>
-											Run pipeline
-										</button>
-									</form>
+									<>
+										<form method="post" action="/source" class="mt-2">
+											<input type="hidden" name="source" value={s.key} />
+											{s.key === "crtsh" ? (
+												<input
+													id={`${s.key}-tld-pipeline`}
+													name="tld"
+													type="text"
+													required
+													placeholder="io"
+													class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+												/>
+											) : null}
+											{s.key === "producthunt" ? (
+												<input
+													id={`${s.key}-maxPages-pipeline`}
+													name="maxPages"
+													type="number"
+													min="1"
+													max="20"
+													defaultValue="10"
+													class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+												/>
+											) : null}
+											<button
+												type="submit"
+												class="mt-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+											>
+												Run pipeline
+											</button>
+										</form>
+										<p class="mt-2 text-sm">
+											<a href={`/debug/sources/${s.key}`} class="text-gray-600 underline">
+												Debug {s.label}
+											</a>
+										</p>
+									</>
 								) : null}
 							</div>
 						);
@@ -210,16 +250,15 @@ export const SourceResultPage: FC<SourceResultPageProps> = z
 						<p>Rejected: {rejected.length}</p>
 
 						{result.qualificationResults.length > 0 ? (
-							<ul class="mt-2 list-disc space-y-1 pl-6 font-mono text-xs">
+							<ul class="mt-2 space-y-1 font-mono text-xs">
 								{result.qualificationResults.map((qr) => {
+									const primaryReason = qr.reasons[0] ?? "";
+									const shortReason = qr.isQualified
+										? "qualified"
+										: primaryReason.replace("Failed: ", "").toLowerCase();
 									return (
-										<li key={qr.domain}>
-											<span class={qr.isQualified ? "text-green-700" : "text-red-700"}>
-												{qr.isQualified ? "qualified" : "rejected"}
-											</span>
-											{!qr.isQualified ? (
-												<span class="text-gray-500"> ({qr.reasons[0]})</span>
-											) : null}
+										<li key={qr.domain} class={qr.isQualified ? "text-green-700" : "text-red-700"}>
+											{qr.domain} → {shortReason}
 										</li>
 									);
 								})}

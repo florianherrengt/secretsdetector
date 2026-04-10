@@ -10,6 +10,7 @@ import {
 import { enqueueScanJob } from "../../server/scan/scanQueue.js";
 import { qualifyDomain } from "../qualifyDomain.js";
 import { crtshSource } from "./crtsh.js";
+import { productHuntSource } from "./producthunt.js";
 import type {
 	DomainSourceDefinition,
 	QualificationResult,
@@ -19,7 +20,9 @@ import type {
 import {
 	qualificationResultSchema,
 	sourcePipelineResultSchema,
-	sourcePreviewResultSchema
+	sourcePreviewResultSchema,
+	sourceDebugResultSchema,
+	debugTransformationSchema
 } from "./types.js";
 
 const sourceRegistry = new Map<string, DomainSourceDefinition>();
@@ -48,6 +51,7 @@ export const listSources = z
 	});
 
 registerSource(crtshSource);
+registerSource(productHuntSource);
 
 export const previewSource = z
 	.function()
@@ -218,6 +222,144 @@ export const runSourcePipeline = z
 		});
 	});
 
+export const debugSource = z
+	.function()
+	.args(z.object({ sourceKey: z.string(), input: z.record(z.unknown()) }))
+	.returns(z.promise(sourceDebugResultSchema))
+	.implement(async ({ sourceKey, input }) => {
+		const source = sourceRegistry.get(sourceKey);
+
+		if (source === undefined) {
+			return sourceDebugResultSchema.parse({
+				sourceKey,
+				fetchError: `Unknown source: ${sourceKey}`,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				skippedDomains: 0,
+				domains: [],
+				transformations: [],
+				metadata: {
+					timing: { fetchMs: 0, normalizeMs: 0, totalMs: 0 },
+					skips: [],
+					sampleRaw: []
+				}
+			});
+		}
+
+		const parsedInput = source.inputSchema.safeParse(input);
+
+		if (!parsedInput.success) {
+			return sourceDebugResultSchema.parse({
+				sourceKey,
+				fetchError: `Invalid input: ${parsedInput.error.issues[0]?.message ?? "unknown"}`,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				skippedDomains: 0,
+				domains: [],
+				transformations: [],
+				metadata: {
+					timing: { fetchMs: 0, normalizeMs: 0, totalMs: 0 },
+					skips: [],
+					sampleRaw: []
+				}
+			});
+		}
+
+		if (source.debug !== undefined) {
+			return source.debug(parsedInput.data);
+		}
+
+		const totalStart = Date.now();
+		const fetchStart = Date.now();
+		const fetchResult = await source.fetch(parsedInput.data);
+		const fetchEnd = Date.now();
+
+		if (!fetchResult.ok) {
+			return sourceDebugResultSchema.parse({
+				sourceKey,
+				fetchError: fetchResult.error,
+				fetchedEntries: 0,
+				rawDomains: 0,
+				normalizedDomains: 0,
+				skippedDomains: 0,
+				domains: [],
+				transformations: [],
+				metadata: {
+					timing: {
+						fetchMs: fetchEnd - fetchStart,
+						normalizeMs: 0,
+						totalMs: Date.now() - totalStart
+					},
+					skips: [],
+					sampleRaw: []
+				}
+			});
+		}
+
+		const rawDomains = fetchResult.domains;
+		const normalizeStart = Date.now();
+
+		const transformations: typeof debugTransformationSchema._type[] = [];
+		const domainSet = new Set<string>();
+		const skips: { domain: string; reason: string }[] = [];
+
+		for (const raw of rawDomains) {
+			const normalized = source.normalizeDomain(raw);
+
+			if (normalized === null) {
+				skips.push({ domain: raw, reason: "Invalid domain" });
+				transformations.push({
+					input: raw,
+					output: null,
+					status: "failed",
+					reason: "Invalid domain"
+				});
+			} else {
+				if (domainSet.has(normalized)) {
+					transformations.push({
+						input: raw,
+						output: normalized,
+						status: "ok",
+						reason: "Duplicate (deduplicated)"
+					});
+				} else {
+					domainSet.add(normalized);
+					transformations.push({
+						input: raw,
+						output: normalized,
+						status: "ok"
+					});
+				}
+			}
+		}
+
+		const normalizeEnd = Date.now();
+		const normalizedList = Array.from(domainSet).sort();
+
+		const sampleRaw = rawDomains.slice(0, 5);
+
+		return sourceDebugResultSchema.parse({
+			sourceKey,
+			fetchedEntries: fetchResult.fetchedEntries,
+			rawDomains: rawDomains.length,
+			normalizedDomains: normalizedList.length,
+			skippedDomains: skips.length,
+			domains: normalizedList,
+			transformations,
+			metadata: {
+				timing: {
+					fetchMs: fetchEnd - fetchStart,
+					normalizeMs: normalizeEnd - normalizeStart,
+					totalMs: Date.now() - totalStart
+				},
+				skips,
+				sampleRaw
+			}
+		});
+	});
+
 export type {
 	DomainSourceDefinition,
 	QualificationResult,
@@ -227,5 +369,6 @@ export type {
 export {
 	qualificationResultSchema,
 	sourcePipelineResultSchema,
-	sourcePreviewResultSchema
+	sourcePreviewResultSchema,
+	sourceDebugResultSchema
 };

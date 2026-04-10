@@ -206,6 +206,22 @@ The system can now discover and ingest domains from external sources, filter the
 
 ---
 
+## v0.10 — Source Expansion + Debug Console (Step 9)
+
+**Expanded domain ingestion beyond CT logs and added a dedicated source-level debugging workflow**
+
+- Added Product Hunt as a second ingestion source, turning the sourcing pipeline into a true multi-source system
+- Introduced source-specific input handling so each source can expose tailored controls while staying inside one shared product flow
+- Added a dedicated source debug console (`/debug/sources/:source`) for query-driven, repeatable source troubleshooting
+- Exposed end-to-end source traces in the debug UI, including fetched counts, normalization outcomes, skips, and timing
+- Linked sourcing and debug experiences so operators can move directly from source selection to deep diagnostics
+- Added source-focused end-to-end coverage to keep source selection, debug routing, and source-specific inputs stable over time
+
+**Outcome:**
+The product now supports multi-source ingestion with a first-class debug surface, making external source onboarding and operational troubleshooting faster and safer.
+
+---
+
 # Current State
 
 The system now supports:

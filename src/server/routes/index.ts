@@ -7,6 +7,7 @@ import qualifyRoutes from "./qualify/index.js";
 import dedupeRoutes from "./dedupe/index.js";
 import adminQueueRoutes from "./admin/queues/index.js";
 import sourceRoutes from "./source/index.js";
+import debugRoutes from "./debug/index.js";
 
 const app = new Hono();
 
@@ -18,5 +19,6 @@ app.route("/qualify", qualifyRoutes);
 app.route("/dedupe", dedupeRoutes);
 app.route("/source", sourceRoutes);
 app.route("/admin/queues", adminQueueRoutes);
+app.route("/debug", debugRoutes);
 
 export default app;
