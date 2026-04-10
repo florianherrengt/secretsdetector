@@ -6,14 +6,13 @@ type Renderable =
 	| { toString: () => string | Promise<string> }
 	| null;
 
-type NoPropsComponent = (props: Record<string, never>) => Renderable;
-
 export const render = z
 	.function()
-	.args(z.custom<NoPropsComponent>())
+	.args(z.custom<unknown>(), z.custom<unknown>())
 	.returns(z.union([z.string(), z.promise(z.string())]))
-	.implement((Component) => {
-		const element = Component({});
+	.implement((Component, props) => {
+		const component = Component as (componentProps: unknown) => Renderable;
+		const element = component(props);
 
 		if (element === null) {
 			return "";

@@ -1,31 +1,14 @@
-import { z } from "zod";
 import { Hono } from "hono";
-import type { Context } from "hono";
-import { render } from "../../lib/response.js";
-import { HomePage } from "../../views/pages/home.js";
+import healthzRoutes from "./healthz/index.js";
+import homeRoutes from "./home/index.js";
+import sandboxWebsiteRoutes from "./sandbox/website/index.js";
+import scanRoutes from "./scan/index.js";
 
 const app = new Hono();
 
-app.get(
-	"/healthz",
-	z
-		.function()
-		.args(z.custom<Context>())
-		.returns(z.instanceof(Response))
-		.implement((c) => {
-			return c.json({ status: "ok" });
-		})
-);
-
-app.get(
-	"/",
-	z
-		.function()
-		.args(z.custom<Context>())
-		.returns(z.custom<Response | Promise<Response>>())
-		.implement((_c) => {
-			return _c.html(render(HomePage));
-		})
-);
+app.route("/", healthzRoutes);
+app.route("/", homeRoutes);
+app.route("/sandbox/website", sandboxWebsiteRoutes);
+app.route("/scan", scanRoutes);
 
 export default app;

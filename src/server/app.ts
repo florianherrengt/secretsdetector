@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { z } from "zod";
 import { Hono } from "hono";
 import type { Context } from "hono";
