@@ -72,28 +72,27 @@ export const upsertDomainRecord = z
 	.args(z.string().min(1))
 	.returns(z.promise(domainSchema))
 	.implement(async (hostname) => {
+		const insertResult = await db
+			.insert(domains)
+			.values({
+				id: randomUUID(),
+				hostname,
+				createdAt: new Date()
+			})
+			.onConflictDoNothing({ target: domains.hostname })
+			.returning();
+
+		if (insertResult[0]) {
+			return domainSchema.parse(insertResult[0]);
+		}
+
 		const existingDomainRows = await db
 			.select()
 			.from(domains)
 			.where(eq(domains.hostname, hostname))
 			.limit(1);
 
-		if (existingDomainRows[0]) {
-			return domainSchema.parse(existingDomainRows[0]);
-		}
-
-		return domainSchema.parse(
-			(
-				await db
-					.insert(domains)
-					.values({
-						id: randomUUID(),
-						hostname,
-						createdAt: new Date()
-					})
-					.returning()
-			)[0]
-		);
+		return domainSchema.parse(existingDomainRows[0]);
 	});
 
 export const createPendingScanRecord = z
@@ -219,9 +218,9 @@ export const persistScanOutcome = z
 			(finding) => !existingFingerprints.has(finding.fingerprint)
 		);
 
-		if (!hasFindingsForScan && dedupedFindings.length > 0) {
+		if (!hasFindingsForScan && newFindings.length > 0) {
 			await db.insert(findings).values(
-				dedupedFindings.map((finding) => {
+				newFindings.map((finding) => {
 					return {
 						id: randomUUID(),
 						scanId,

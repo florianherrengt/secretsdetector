@@ -279,3 +279,18 @@ The system now has production-ready passwordless auth that is fully testable loc
 
 **Outcome:**
 Users can now build a personal watchlist of domains they care about, and the scan endpoint is safe for unauthenticated production traffic. All e2e tests share a single auth foundation.
+
+---
+
+## v0.13 — Distributed Scan Guardrails (Step 12)
+
+**Hardened scan ingestion for multi-instance operation with stronger data integrity under concurrency**
+
+- Replaced in-memory scan throttling with Redis-backed rate limiting so abuse controls now hold consistently across multiple app instances
+- Unified queue and rate-limit infrastructure on a shared Redis client, reducing drift between async processing and request admission control
+- Added a database-level uniqueness guarantee for domain hostnames and aligned writes to conflict-safe upsert behavior
+- Removed race-prone domain creation paths in scan and dedupe flows by reusing shared scan job primitives
+- Tightened finding persistence to store only genuinely new fingerprints instead of re-inserting already known signals
+
+**Outcome:**
+The product can now enforce scan guardrails and domain uniqueness reliably in distributed deployments, while keeping stored findings cleaner under concurrent traffic.

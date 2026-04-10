@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { RateLimiterRedis } from "rate-limiter-flexible";
 import { render } from "../../../lib/response.js";
 import { domainSchema } from "../../../schemas/domain.js";
 import { findingSchema } from "../../../schemas/finding.js";
@@ -17,14 +18,21 @@ import {
 	upsertDomainRecord
 } from "../../scan/scanJob.js";
 import { enqueueScanJob } from "../../scan/scanQueue.js";
+import { ioredisClient } from "../../scan/redis.js";
 
 const scanRoutes = new Hono();
 
-const scanWindowMs = Number(process.env.SCAN_RATE_LIMIT_WINDOW_MS ?? "60000");
+const scanWindowSeconds = Math.round(Number(process.env.SCAN_RATE_LIMIT_WINDOW_MS ?? "60000") / 1000);
 const scanMaxRequestsPerWindow = Number(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS ?? "10");
 const scanMaxConcurrentRequests = Number(process.env.SCAN_MAX_CONCURRENT_REQUESTS ?? "20");
 
-const scanRequestsByIp = new Map<string, number[]>();
+const scanRateLimiter = new RateLimiterRedis({
+	storeClient: ioredisClient,
+	keyPrefix: "scan_rl",
+	points: scanMaxRequestsPerWindow,
+	duration: scanWindowSeconds
+});
+
 const scanRequestState = {
 	inFlightRequests: 0
 };
@@ -62,23 +70,17 @@ const getClientIp = z
 		return firstForwardedIp ?? "unknown";
 	});
 
-const hasRateLimitCapacity = z
+const checkRateLimit = z
 	.function()
-	.args(z.string().min(1), z.number().int().nonnegative())
-	.returns(z.boolean())
-	.implement((clientIp, nowMs) => {
-		const timestamps = scanRequestsByIp.get(clientIp) ?? [];
-		const cutoff = nowMs - scanWindowMs;
-		const recentTimestamps = timestamps.filter((timestamp) => timestamp > cutoff);
-
-		if (recentTimestamps.length >= scanMaxRequestsPerWindow) {
-			scanRequestsByIp.set(clientIp, recentTimestamps);
+	.args(z.string().min(1))
+	.returns(z.promise(z.boolean()))
+	.implement(async (clientIp) => {
+		try {
+			await scanRateLimiter.consume(clientIp);
+			return true;
+		} catch {
 			return false;
 		}
-
-		recentTimestamps.push(nowMs);
-		scanRequestsByIp.set(clientIp, recentTimestamps);
-		return true;
 	});
 
 scanRoutes.post(
@@ -89,9 +91,8 @@ scanRoutes.post(
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement(async (c) => {
 			const clientIp = getClientIp(c);
-			const now = Date.now();
 
-			if (!hasRateLimitCapacity(clientIp, now)) {
+			if (!(await checkRateLimit(clientIp))) {
 				return c.html("<h1>Too Many Requests</h1><p>Please wait before starting another scan.</p>", 429);
 			}
 

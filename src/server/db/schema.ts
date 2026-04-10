@@ -10,7 +10,7 @@ export const findingTypeEnum = pgEnum("finding_type", ["secret"]);
 
 export const domains = pgTable("domains", {
 	id: uuid("id").primaryKey(),
-	hostname: text("hostname").notNull(),
+	hostname: text("hostname").notNull().unique(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
 });
 

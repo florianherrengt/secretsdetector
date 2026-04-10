@@ -1,0 +1,1 @@
+ALTER TABLE "domains" ADD CONSTRAINT "domains_hostname_unique" UNIQUE("hostname");

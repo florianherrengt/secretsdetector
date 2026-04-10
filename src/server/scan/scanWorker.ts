@@ -10,7 +10,8 @@ import {
 	upsertDomainRecord,
 	type ScanQueueJobData
 } from "./scanJob.js";
-import { redisConnection, scanQueueName } from "./scanQueue.js";
+import { scanQueueName } from "./scanQueue.js";
+import { ioredisClient } from "./redis.js";
 
 const scanWorkerResultSchema = z.object({
 	scanId: z.string().uuid(),
@@ -125,7 +126,7 @@ export const startScanWorker = z
 		}
 
 		scanWorker = new Worker<ScanQueueJobData, ScanWorkerResult>(scanQueueName, processScanQueueJob, {
-			connection: redisConnection
+			connection: ioredisClient
 		});
 
 		console.log(`[scan-worker] Listening on queue ${scanQueueName}`);
