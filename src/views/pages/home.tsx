@@ -9,8 +9,12 @@ export const HomePage: FC<Record<string, never>> = z
 	.implement(() => {
 		return (
 			<Layout title="Home">
-				<h1>Secret Detector</h1>
-				<p>Server-side domain scanning and secret detection platform.</p>
+				<section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+					<h1 class="text-2xl font-semibold tracking-tight">Secret Detector</h1>
+					<p class="mt-2 text-sm text-gray-600">
+						Server-side domain scanning and secret detection platform.
+					</p>
+				</section>
 			</Layout>
 		);
 	});
