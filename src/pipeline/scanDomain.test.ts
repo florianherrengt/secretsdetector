@@ -71,51 +71,51 @@ describe("scanDomain local fixtures", () => {
 	});
 
 	it("detects pem private key fixture", async () => {
-		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/pem-key` });
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/pem-key/` });
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(1);
-		expect(result.findings[0]?.file).toContain("/sandbox/website/assets/pem-key.js");
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/pem-key/assets/main.js");
 		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
 		expect(result.findings[0]?.snippet).not.toContain("abc123supersecretfixturekey");
 		expect(result.findings[0]?.fingerprint).toMatch(/^[a-f0-9]{64}$/);
 	});
 
 	it("detects jwt fixture", async () => {
-		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/jwt` });
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/jwt/` });
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(1);
-		expect(result.findings[0]?.file).toContain("/sandbox/website/assets/jwt.js");
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/jwt/assets/main.js");
 		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
 	});
 
 	it("detects credential url fixture", async () => {
-		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/credential-url` });
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/credential-url/` });
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(1);
-		expect(result.findings[0]?.file).toContain("/sandbox/website/assets/credential-url.js");
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/credential-url/assets/main.js");
 		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
 	});
 
 	it("returns no findings for clean fixture", async () => {
-		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/no-leak` });
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/no-leak/` });
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(0);
 	});
 
 	it("stops after first script finding in multiple fixture", async () => {
-		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/multiple` });
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/multiple/` });
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(1);
-		expect(result.findings[0]?.file).toContain("/sandbox/website/assets/multiple-first.js");
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/multiple/assets/first.js");
 	});
 
 	it("returns failed for invalid target", async () => {
-		const result = await scanDomain({ domain: "https://localhost:3310/sandbox/website/pem-key" });
+		const result = await scanDomain({ domain: "https://localhost:3310/sandbox/website/examples/pem-key/" });
 
 		expect(result.status).toBe("failed");
 		expect(result.findings).toHaveLength(0);

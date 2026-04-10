@@ -22,14 +22,24 @@ describe("GET /", () => {
 	});
 });
 
-describe("GET /sandbox/website/:scenario", () => {
-	it("returns deterministic fixture page for pem-key", async () => {
-		const res = await app.request("/sandbox/website/pem-key");
+describe("GET /sandbox/website", () => {
+	it("returns examples home page", async () => {
+		const res = await app.request("/sandbox/website");
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("text/html");
 		const html = await res.text();
-		expect(html).toContain("Fixture pem-key");
-		expect(html).toContain('<script src="/sandbox/website/assets/pem-key.js"></script>');
+		expect(html).toContain("Sandbox Website Examples");
+		expect(html).toContain("Open site example");
+		expect(html).toContain("Scan with tool");
+	});
+
+	it("returns example page in folder for pem-key", async () => {
+		const res = await app.request("/sandbox/website/examples/pem-key/");
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("text/html");
+		const html = await res.text();
+		expect(html).toContain("PEM key in frontend bundle");
+		expect(html).toContain('<script src="/sandbox/website/examples/pem-key/assets/main.js"></script>');
 	});
 
 	it("returns not found for unknown scenario", async () => {
@@ -38,9 +48,9 @@ describe("GET /sandbox/website/:scenario", () => {
 	});
 });
 
-describe("GET /sandbox/website/assets/:asset", () => {
+describe("GET /sandbox/website/examples/:scenario/assets/:asset", () => {
 	it("returns fixture javascript content", async () => {
-		const res = await app.request("/sandbox/website/assets/credential-url.js");
+		const res = await app.request("/sandbox/website/examples/credential-url/assets/main.js");
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("application/javascript");
 		const js = await res.text();

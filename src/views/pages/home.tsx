@@ -2,6 +2,14 @@ import { z } from "zod";
 import type { FC } from "hono/jsx";
 import { Layout } from "../layout.js";
 
+const demoExamples = [
+	{ slug: "pem-key", title: "PEM key in frontend bundle" },
+	{ slug: "jwt", title: "JWT token shipped to client" },
+	{ slug: "credential-url", title: "Credential in URL" },
+	{ slug: "no-leak", title: "Clean baseline" },
+	{ slug: "multiple", title: "Multiple scripts, first one leaks" }
+] as const;
+
 export const HomePage: FC<Record<string, never>> = z
 	.function()
 	.args()
@@ -24,7 +32,7 @@ export const HomePage: FC<Record<string, never>> = z
 							name="domain"
 							type="text"
 							required
-							placeholder="localhost:3000/sandbox/website/pem-key"
+							placeholder="localhost:3000/sandbox/website/examples/pem-key/"
 							class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
 						/>
 						<button
@@ -34,7 +42,50 @@ export const HomePage: FC<Record<string, never>> = z
 							Run scan
 						</button>
 					</form>
+
+					<div class="mt-8 border-t border-gray-200 pt-6">
+						<h2 class="text-lg font-semibold tracking-tight">Demo examples</h2>
+						<p class="mt-2 text-sm text-gray-600">
+							Open a sandbox website directly, or run it through the scan tool.
+						</p>
+						<ul class="mt-4 space-y-3">
+							{demoExamples.map((example) => {
+								const examplePath = `/sandbox/website/examples/${example.slug}/`;
+
+								return (
+									<li class="rounded-md border border-gray-200 p-3" key={example.slug}>
+										<p class="text-sm font-medium text-gray-900">{example.title}</p>
+										<div class="mt-2 flex gap-3">
+											<a href={examplePath} class="text-sm text-gray-900 underline">
+												Open site
+											</a>
+											<form action="/scan" method="post">
+												<input
+													type="hidden"
+													name="domain"
+													value=""
+													data-scan-target={example.slug}
+												/>
+												<button type="submit" class="text-sm text-gray-900 underline">
+													Scan with tool
+												</button>
+											</form>
+										</div>
+									</li>
+								);
+							})}
+						</ul>
+					</div>
 				</section>
+				<script>{`
+const host = window.location.host;
+const inputs = document.querySelectorAll('[data-scan-target]');
+for (const input of inputs) {
+  const scenario = input.getAttribute('data-scan-target');
+  if (!scenario) continue;
+  input.value = host + '/sandbox/website/examples/' + scenario + '/';
+}
+				`}</script>
 			</Layout>
 		);
 	});
