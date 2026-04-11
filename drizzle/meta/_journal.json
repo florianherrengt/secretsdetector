@@ -36,6 +36,20 @@
       "when": 1775843729559,
       "tag": "0004_tearful_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775870461712,
+      "tag": "0005_bitter_calypso",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775870882410,
+      "tag": "0006_parallel_psynapse",
+      "breakpoints": true
     }
   ]
 }

@@ -1,20 +1,22 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
+import { builtinChecks, checkResultSchema, checkScriptSchema, type ScanCheck } from "./checks.js";
 
 export const ScanDomainInput = z.object({
 	domain: z.string()
 });
 
+const scanFindingWithCheckIdSchema = z.object({
+	checkId: z.string(),
+	type: z.literal("secret"),
+	file: z.string(),
+	snippet: z.string(),
+	fingerprint: z.string()
+});
+
 export const ScanDomainOutput = z.object({
 	status: z.enum(["success", "failed"]),
-	findings: z.array(
-		z.object({
-			type: z.literal("secret"),
-			file: z.string(),
-			snippet: z.string(),
-			fingerprint: z.string()
-		})
-	)
+	checks: z.array(checkResultSchema),
+	findings: z.array(scanFindingWithCheckIdSchema)
 });
 
 export type ScanDomainInput = z.infer<typeof ScanDomainInput>;
@@ -25,9 +27,6 @@ const SCRIPT_TIMEOUT_MS = 3_000;
 const HOMEPAGE_MAX_BYTES = 200 * 1024;
 const SCRIPT_MAX_BYTES = 50 * 1024;
 const MAX_SCRIPT_CANDIDATES = 3;
-const GENERIC_TOKEN_MIN_LENGTH = 20;
-const GENERIC_TOKEN_MIN_ENTROPY = 3.6;
-const CONTEXT_WINDOW_CHARS = 80;
 
 const isValidHostname = z
 	.function()
@@ -111,7 +110,6 @@ const normalizeScanTarget = z
 		}
 
 		const targetUrl = parsed;
-
 		const normalizedHostname = targetUrl.hostname.toLowerCase();
 
 		if (!isValidHostname(normalizedHostname)) {
@@ -339,303 +337,6 @@ const isLikelyJavaScript = z
 		return false;
 	});
 
-const redactSecret = z
-	.function()
-	.args(z.string())
-	.returns(z.string())
-	.implement((value) => {
-		if (value.length <= 8) {
-			return "[REDACTED]";
-		}
-
-		const prefix = value.slice(0, 4);
-		const suffix = value.slice(-4);
-
-		return `${prefix}...[REDACTED]...${suffix}`;
-	});
-
-const buildSnippet = z
-	.function()
-	.args(z.string(), z.number().int().nonnegative(), z.number().int().positive(), z.string())
-	.returns(z.string())
-	.implement((body, start, end, matchedValue) => {
-		const contextChars = 50;
-		const snippetStart = Math.max(0, start - contextChars);
-		const snippetEnd = Math.min(body.length, end + contextChars);
-		const rawSnippet = body.slice(snippetStart, snippetEnd);
-		const localStart = start - snippetStart;
-		const localEnd = localStart + (end - start);
-
-		const redacted = `${rawSnippet.slice(0, localStart)}${redactSecret(matchedValue)}${rawSnippet.slice(localEnd)}`;
-		const snippet = redacted.replace(/\s+/g, " ").trim();
-
-		if (snippet.length > 180) {
-			return snippet.slice(0, 180);
-		}
-
-		return snippet;
-	});
-
-const fingerprintValue = z
-	.function()
-	.args(z.string())
-	.returns(z.string())
-	.implement((value) => {
-		return createHash("sha256").update(value).digest("hex");
-	});
-
-const isLikelyJwt = z
-	.function()
-	.args(z.string())
-	.returns(z.boolean())
-	.implement((value) => {
-		if (value.length < 60) {
-			return false;
-		}
-
-		if (!value.startsWith("eyJ")) {
-			return false;
-		}
-
-		const segments = value.split(".");
-
-		if (segments.length !== 3) {
-			return false;
-		}
-
-		if (segments[0].length < 10 || segments[1].length < 10 || segments[2].length < 16) {
-			return false;
-		}
-
-		return true;
-	});
-
-const shannonEntropy = z
-	.function()
-	.args(z.string())
-	.returns(z.number().nonnegative())
-	.implement((value) => {
-		if (value.length === 0) {
-			return 0;
-		}
-
-		const counts = new Map<string, number>();
-
-		for (const char of value) {
-			counts.set(char, (counts.get(char) ?? 0) + 1);
-		}
-
-		const entropy = [...counts.values()].reduce((sum, count) => {
-			const probability = count / value.length;
-			return sum - probability * Math.log2(probability);
-		}, 0);
-
-		return entropy;
-	});
-
-const hasGenericTokenEntropy = z
-	.function()
-	.args(z.string())
-	.returns(z.boolean())
-	.implement((value) => {
-		if (value.length < GENERIC_TOKEN_MIN_LENGTH) {
-			return false;
-		}
-
-		return shannonEntropy(value) >= GENERIC_TOKEN_MIN_ENTROPY;
-	});
-
-const getDetectionContext = z
-	.function()
-	.args(z.string(), z.number().int().nonnegative(), z.number().int().positive())
-	.returns(z.string())
-	.implement((body, start, end) => {
-		const contextStart = Math.max(0, start - CONTEXT_WINDOW_CHARS);
-		const contextEnd = Math.min(body.length, end + CONTEXT_WINDOW_CHARS);
-
-		return body.slice(contextStart, contextEnd).toLowerCase();
-	});
-
-const hasPositiveContext = z
-	.function()
-	.args(z.string(), z.number().int().nonnegative(), z.number().int().positive())
-	.returns(z.boolean())
-	.implement((body, start, end) => {
-		const context = getDetectionContext(body, start, end);
-
-		return /\b(secret|token|auth|authorization|password|api[_-]?key|apikey)\b/i.test(context);
-	});
-
-const hasNegativeContext = z
-	.function()
-	.args(z.string(), z.number().int().nonnegative(), z.number().int().positive())
-	.returns(z.boolean())
-	.implement((body, start, end) => {
-		const context = getDetectionContext(body, start, end);
-
-		return /\b(analytics|measurement|tracking|public|example)\b/i.test(context);
-	});
-
-const isAllowlistedValue = z
-	.function()
-	.args(z.string())
-	.returns(z.boolean())
-	.implement((value) => {
-		const lowerValue = value.toLowerCase();
-
-		if (/^pk_(live|test)_[a-z0-9]{6,}$/i.test(value)) {
-			return true;
-		}
-
-		if (/^g-[a-z0-9]{4,}$/i.test(value) || /^ua-\d{4,}-\d+$/i.test(value)) {
-			return true;
-		}
-
-		if (/^ca-pub-\d{10,}$/i.test(value)) {
-			return true;
-		}
-
-		if (lowerValue.includes("example")) {
-			return true;
-		}
-
-		return false;
-	});
-
-const detectHighConfidenceSecret = z
-	.function()
-	.args(z.string())
-	.returns(
-		z
-			.object({
-				value: z.string(),
-				start: z.number().int().nonnegative(),
-				end: z.number().int().positive()
-			})
-			.nullable()
-	)
-	.implement((body) => {
-		const privateKeyMarker = "-----BEGIN PRIVATE KEY-----";
-		const privateKeyIndex = body.indexOf(privateKeyMarker);
-
-		if (privateKeyIndex !== -1) {
-			const privateKeyEndMarker = "-----END PRIVATE KEY-----";
-			const endMarkerIndex = body.indexOf(
-				privateKeyEndMarker,
-				privateKeyIndex + privateKeyMarker.length
-			);
-			const hasCompleteBlock = endMarkerIndex !== -1;
-			const valueEnd = hasCompleteBlock
-				? endMarkerIndex + privateKeyEndMarker.length
-				: privateKeyIndex + privateKeyMarker.length;
-			const privateKeyValue = body.slice(privateKeyIndex, valueEnd);
-
-			return {
-				value: privateKeyValue,
-				start: privateKeyIndex,
-				end: valueEnd
-			};
-		}
-
-		const jwtRegex = /(^|[^A-Za-z0-9_-])([A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{16,})(?![A-Za-z0-9_-])/g;
-
-		while (true) {
-			const match = jwtRegex.exec(body);
-
-			if (match === null) {
-				break;
-			}
-
-			const value = match[2];
-
-			if (!isLikelyJwt(value)) {
-				continue;
-			}
-
-			const prefixLength = match[1]?.length ?? 0;
-			const start = match.index + prefixLength;
-			const end = start + value.length;
-
-			if (!hasPositiveContext(body, start, end)) {
-				continue;
-			}
-
-			if (hasNegativeContext(body, start, end)) {
-				continue;
-			}
-
-			return {
-				value,
-				start,
-				end
-			};
-		}
-
-		const credentialUrlRegex = /\bhttps?:\/\/[^\s/@:]+:[^\s/@]+@[^\s"'<>]+/g;
-
-		while (true) {
-			const match = credentialUrlRegex.exec(body);
-
-			if (match === null) {
-				break;
-			}
-
-			const value = match[0];
-			const start = match.index;
-			const end = start + value.length;
-
-			return {
-				value,
-				start,
-				end
-			};
-		}
-
-		const genericTokenRegex = /(["'`])([A-Za-z0-9_./+=-]{16,})\1/g;
-
-		while (true) {
-			const match = genericTokenRegex.exec(body);
-
-			if (match === null) {
-				break;
-			}
-
-			const value = match[2] ?? "";
-
-			if (value.length === 0) {
-				continue;
-			}
-
-			const quoteLength = (match[1] ?? "").length;
-			const start = match.index + quoteLength;
-			const end = start + value.length;
-
-			if (isAllowlistedValue(value)) {
-				continue;
-			}
-
-			if (!hasGenericTokenEntropy(value)) {
-				continue;
-			}
-
-			if (!hasPositiveContext(body, start, end)) {
-				continue;
-			}
-
-			if (hasNegativeContext(body, start, end)) {
-				continue;
-			}
-
-			return {
-				value,
-				start,
-				end
-			};
-		}
-
-		return null;
-	});
-
 const toFailedResult = z
 	.function()
 	.args()
@@ -643,8 +344,47 @@ const toFailedResult = z
 	.implement(() => {
 		return {
 			status: "failed",
+			checks: [],
 			findings: []
 		};
+	});
+
+export const runChecks = z
+	.function()
+	.args(z.string().url(), z.array(checkScriptSchema), z.array(z.custom<ScanCheck>()))
+	.returns(z.array(checkResultSchema))
+	.implement((domain, scripts, checks) => {
+		const results: z.infer<typeof checkResultSchema>[] = [];
+
+		for (const check of checks) {
+			try {
+				const checkResult = check.run({ domain, scripts });
+
+				results.push({
+					id: check.id,
+					name: check.name,
+					description: check.description,
+					findings: checkResult.findings
+				});
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : "Unknown check error";
+
+				console.error("[scan-domain] Check execution failed", {
+					checkId: check.id,
+					domain,
+					error: errorMessage
+				});
+
+				results.push({
+					id: check.id,
+					name: check.name,
+					description: check.description,
+					findings: []
+				});
+			}
+		}
+
+		return results;
 	});
 
 export const scanDomain = z
@@ -679,7 +419,7 @@ export const scanDomain = z
 
 		const scriptUrls = extractScriptUrls(homepage.body, targetUrl);
 		const candidateScriptUrls = scriptUrls.slice(0, MAX_SCRIPT_CANDIDATES);
-		const findings: ScanDomainOutput["findings"] = [];
+		const scripts: { file: string; content: string }[] = [];
 
 		for (const scriptUrl of candidateScriptUrls) {
 			const scriptResponse = await fetchTextResource(scriptUrl, SCRIPT_TIMEOUT_MS, SCRIPT_MAX_BYTES, {
@@ -694,24 +434,29 @@ export const scanDomain = z
 				continue;
 			}
 
-			const detection = detectHighConfidenceSecret(scriptResponse.body);
-
-			if (detection === null) {
-				continue;
-			}
-
-			findings.push({
-				type: "secret",
+			scripts.push({
 				file: scriptUrl,
-				snippet: buildSnippet(scriptResponse.body, detection.start, detection.end, detection.value),
-				fingerprint: fingerprintValue(detection.value)
+				content: scriptResponse.body
 			});
-
-			break;
 		}
+
+		const checks = runChecks(targetUrl, scripts, builtinChecks);
+
+		const findings = checks.flatMap((checkResult) => {
+			return checkResult.findings.map((finding) => {
+				return {
+					checkId: checkResult.id,
+					type: finding.type,
+					file: finding.file,
+					snippet: finding.snippet,
+					fingerprint: finding.fingerprint
+				};
+			});
+		});
 
 		return {
 			status: "success",
+			checks,
 			findings
 		};
 	});

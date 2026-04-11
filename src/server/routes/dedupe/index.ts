@@ -70,15 +70,15 @@ dedupeRoutes.post(
 			const existingFingerprintRows =
 				dedupedFingerprints.length > 0
 					? await db
-							.select({ fingerprint: findings.fingerprint })
+							.select({ fingerprint: findings.fingerprint, checkId: findings.checkId })
 							.from(findings)
 							.where(inArray(findings.fingerprint, dedupedFingerprints))
 					: [];
-			const existingFingerprints = new Set(
-				existingFingerprintRows.map((row) => row.fingerprint)
+			const existingFindingKeys = new Set(
+				existingFingerprintRows.map((row) => `${row.checkId}:${row.fingerprint}`)
 			);
 			const newFindings = dedupedFindings.filter(
-				(finding) => !existingFingerprints.has(finding.fingerprint)
+				(finding) => !existingFindingKeys.has(`${finding.checkId}:${finding.fingerprint}`)
 			);
 
 			await db
@@ -93,10 +93,11 @@ dedupeRoutes.post(
 				await db.insert(findings).values(
 					newFindings.map((finding) => {
 						return {
-							id: randomUUID(),
-							scanId: scanRecord.id,
-							type: finding.type,
-							file: finding.file,
+						id: randomUUID(),
+						scanId: scanRecord.id,
+						checkId: finding.checkId,
+						type: finding.type,
+						file: finding.file,
 							snippet: finding.snippet,
 							fingerprint: finding.fingerprint,
 							createdAt: finishedAt

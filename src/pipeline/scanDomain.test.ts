@@ -2,7 +2,8 @@ import { z } from "zod";
 import { serve } from "@hono/node-server";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import app from "../server/routes/index.js";
-import { scanDomain } from "./scanDomain.js";
+import type { ScanCheck } from "./checks.js";
+import { runChecks, scanDomain } from "./scanDomain.js";
 
 const TEST_PORT = 3310;
 type TestServer = ReturnType<typeof serve>;
@@ -50,6 +51,30 @@ const closeServer = z
 		});
 	});
 
+const countFindingsForCheck = z
+	.function()
+	.args(
+		z.object({
+			checks: z.array(
+				z.object({
+					id: z.string(),
+					findings: z.array(z.object({ file: z.string(), snippet: z.string() }))
+				})
+			),
+			checkId: z.string().min(1)
+		})
+	)
+	.returns(z.number().int().nonnegative())
+	.implement(({ checks, checkId }) => {
+		const matchedCheck = checks.find((check) => check.id === checkId);
+
+		if (!matchedCheck) {
+			return 0;
+		}
+
+		return matchedCheck.findings.length;
+	});
+
 describe("scanDomain local fixtures", () => {
 	let server: TestServer; // eslint-disable-line custom/no-mutable-variables
 
@@ -67,6 +92,10 @@ describe("scanDomain local fixtures", () => {
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(1);
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "pem-key" })).toBe(1);
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "jwt-token" })).toBe(0);
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "credential-url" })).toBe(0);
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "generic-secret" })).toBe(0);
 		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/pem-key/assets/main.js");
 		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
 		expect(result.findings[0]?.snippet).not.toContain("abc123supersecretfixturekey");
@@ -96,14 +125,16 @@ describe("scanDomain local fixtures", () => {
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(0);
+		expect(result.checks.every((check) => check.findings.length === 0)).toBe(true);
 	});
 
-	it("stops after first script finding in multiple fixture", async () => {
+	it("returns findings from multiple checks independently", async () => {
 		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/multiple/` });
 
 		expect(result.status).toBe("success");
-		expect(result.findings).toHaveLength(1);
-		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/multiple/assets/first.js");
+		expect(result.findings.length).toBeGreaterThanOrEqual(1);
+		expect(result.findings.some((finding) => finding.file.includes("/sandbox/website/examples/multiple/assets/"))).toBe(true);
+		expect(result.checks.some((check) => check.findings.length > 0)).toBe(true);
 	});
 
 	it("returns failed for invalid target", async () => {
@@ -154,6 +185,63 @@ describe("scanDomain local fixtures", () => {
 
 		expect(result.status).toBe("success");
 		expect(result.findings).toHaveLength(0);
+	});
+
+	it("continues running other checks if one check throws", () => {
+		const checks: ScanCheck[] = [
+			{
+				id: "throwing-check",
+				name: "Throwing Check",
+				description: "Always throws",
+				run: z
+					.function()
+					.args(z.object({ domain: z.string().url(), scripts: z.array(z.object({ file: z.string().url(), content: z.string() })) }))
+					.returns(z.object({ findings: z.array(z.any()) }))
+					.implement(() => {
+						throw new Error("boom");
+					}) as unknown as ScanCheck["run"]
+			},
+			{
+				id: "safe-check",
+				name: "Safe Check",
+				description: "Returns one finding",
+				run: z
+					.function()
+					.args(z.object({ domain: z.string().url(), scripts: z.array(z.object({ file: z.string().url(), content: z.string() })) }))
+					.returns(
+						z.object({
+							findings: z.array(
+								z.object({
+									type: z.literal("secret"),
+									file: z.string().url(),
+									snippet: z.string(),
+									fingerprint: z.string()
+								})
+							)
+						})
+					)
+					.implement(() => {
+						return {
+							findings: [
+								{
+									type: "secret",
+									file: "https://example.com/app.js",
+									snippet: "token=[REDACTED]",
+									fingerprint: "abc123"
+								}
+							]
+						};
+					}) as unknown as ScanCheck["run"]
+			}
+		];
+
+		const result = runChecks("https://example.com/", [], checks);
+
+		expect(result).toHaveLength(2);
+		expect(result[0]?.id).toBe("throwing-check");
+		expect(result[0]?.findings).toHaveLength(0);
+		expect(result[1]?.id).toBe("safe-check");
+		expect(result[1]?.findings).toHaveLength(1);
 	});
 
 });

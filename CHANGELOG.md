@@ -310,3 +310,19 @@ The product can now enforce scan guardrails and domain uniqueness reliably in di
 
 **Outcome:**
 Users can now discover authentication from the homepage, complete the magic-link request flow in-app, and arrive directly in their working domain dashboard.
+
+---
+
+## v0.15 — Check-Centric Detection + Explainable Results (Step 14)
+
+**Re-architected scanning around explicit checks so detections are modular, attributable, and easier to evolve over time**
+
+- Replaced the monolithic detector path with a pluggable built-in check registry (PEM key, JWT, credential URL, generic secret) backed by shared check schemas and execution contracts
+- Upgraded scan output to carry both per-check execution results and flattened findings tagged with check identity, preserving a stable flow for persistence and queue processing
+- Extended findings persistence with mandatory `check_id` and supporting indexes, enabling efficient query and deduplication behavior in the new check-aware model
+- Shifted deduplication semantics from fingerprint-only to `check_id + fingerprint`, preventing cross-check collisions while keeping repeated signal suppression intact
+- Evolved scan result UX from a flat findings list to check-level status visibility and grouped findings, so users can immediately see what detector class triggered each issue
+- Hardened autonomous improvement-loop tooling with strict input normalization, safe output serialization, and expanded test coverage for more reliable long-running automation
+
+**Outcome:**
+The product now provides check-attributed leak detection with stronger data integrity and clearer operator visibility, while creating a stable architecture for adding and iterating detectors independently.

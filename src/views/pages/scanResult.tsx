@@ -7,12 +7,20 @@ export const scanResultItemSchema = z.object({
 	snippet: z.string()
 });
 
+export const scanResultCheckSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	description: z.string(),
+	status: z.enum(["passed", "failed"]),
+	findings: z.array(scanResultItemSchema)
+});
+
 export const scanResultPagePropsSchema = z.object({
 	domain: z.string(),
 	status: z.enum(["pending", "success", "failed"]),
 	startedAtIso: z.string(),
 	finishedAtIso: z.string().nullable(),
-	findings: z.array(scanResultItemSchema)
+	checks: z.array(scanResultCheckSchema)
 });
 
 export type ScanResultPageProps = z.infer<typeof scanResultPagePropsSchema>;
@@ -53,28 +61,56 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 
 					{isSuccess ? (
 						<>
-							<h2 class="mt-5 text-lg font-semibold">Findings</h2>
-							{props.findings.length === 0 ? (
-								<p class="mt-2 text-sm text-gray-600">No findings</p>
-							) : (
-								<ul class="mt-2 space-y-3 text-sm">
-									{props.findings.map((finding) => {
-										return (
-											<li
-												class="rounded-md border border-gray-200 p-3"
-												key={`${finding.file}-${finding.snippet}`}
-											>
-												<p>
-													<strong>File:</strong> {finding.file}
-												</p>
-												<p class="mt-1 break-words">
-													<strong>Snippet:</strong> {finding.snippet}
-												</p>
-											</li>
-										);
-									})}
-								</ul>
-							)}
+							<h2 class="mt-5 text-lg font-semibold">Checks</h2>
+							<ul class="mt-2 space-y-3 text-sm">
+								{props.checks.map((check) => {
+									return (
+										<li class="rounded-md border border-gray-200 p-3" key={check.id}>
+											<p>
+												<strong>Check:</strong> {check.name}
+											</p>
+											<p class="mt-1 text-gray-700">
+												<strong>Status:</strong> {check.status}
+											</p>
+											<p class="mt-1 text-gray-700">
+												<strong>Findings:</strong> {check.findings.length}
+											</p>
+										</li>
+									);
+								})}
+							</ul>
+
+							<h2 class="mt-6 text-lg font-semibold">Findings by Check</h2>
+							<div class="mt-2 space-y-4 text-sm">
+								{props.checks.map((check) => {
+									return (
+										<section class="rounded-md border border-gray-200 p-3" key={`${check.id}-group`}>
+											<h3 class="font-semibold">{check.name}</h3>
+											{check.findings.length === 0 ? (
+												<p class="mt-1 text-gray-600">No issues found</p>
+											) : (
+												<ul class="mt-2 space-y-3">
+													{check.findings.map((finding) => {
+														return (
+															<li
+																class="rounded-md border border-gray-200 p-3"
+																key={`${check.id}-${finding.file}-${finding.snippet}`}
+															>
+																<p>
+																	<strong>File:</strong> {finding.file}
+																</p>
+																<p class="mt-1 break-words">
+																	<strong>Snippet:</strong> {finding.snippet}
+																</p>
+															</li>
+														);
+													})}
+												</ul>
+											)}
+										</section>
+									);
+								})}
+							</div>
 						</>
 					) : null}
 				</section>

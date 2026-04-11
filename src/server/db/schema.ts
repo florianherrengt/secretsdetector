@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const scanStatusEnum = pgEnum("scan_status", [
 	"pending",
@@ -25,18 +25,32 @@ export const scans = pgTable("scans", {
 	finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" })
 });
 
-export const findings = pgTable("findings", {
-	id: uuid("id").primaryKey(),
-	scanId: uuid("scan_id")
-		.notNull()
-		// eslint-disable-next-line custom/no-raw-functions
-		.references(() => scans.id),
-	type: findingTypeEnum("type").notNull(),
-	file: text("file").notNull(),
-	snippet: text("snippet").notNull(),
-	fingerprint: text("fingerprint").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
-});
+export const findings = pgTable(
+	"findings",
+	{
+		id: uuid("id").primaryKey(),
+		scanId: uuid("scan_id")
+			.notNull()
+			// eslint-disable-next-line custom/no-raw-functions
+			.references(() => scans.id),
+		checkId: text("check_id").notNull(),
+		type: findingTypeEnum("type").notNull(),
+		file: text("file").notNull(),
+		snippet: text("snippet").notNull(),
+		fingerprint: text("fingerprint").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
+	},
+	// eslint-disable-next-line custom/no-raw-functions
+	(table) => {
+		return {
+			findingsFingerprintIdx: index("findings_fingerprint_idx").on(table.fingerprint),
+			findingsCheckFingerprintIdx: index("findings_check_id_fingerprint_idx").on(
+				table.checkId,
+				table.fingerprint
+			)
+		};
+	}
+);
 
 export const mockEmails = pgTable("mock_emails", {
 	id: uuid("id").primaryKey(),

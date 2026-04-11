@@ -41,6 +41,7 @@ export const normalizeSubmittedDomain = z
 	});
 
 const scanFindingSchema = z.object({
+	checkId: z.string().min(1),
 	type: z.literal("secret"),
 	file: z.string(),
 	snippet: z.string(),
@@ -52,15 +53,17 @@ export const dedupeFindingsWithinScan = z
 	.args(z.array(scanFindingSchema))
 	.returns(z.array(scanFindingSchema))
 	.implement((rawFindings) => {
-		const seenFingerprints = new Set<string>();
+		const seenFindingKeys = new Set<string>();
 		const dedupedFindings: typeof rawFindings = [];
 
 		for (const finding of rawFindings) {
-			if (seenFingerprints.has(finding.fingerprint)) {
+			const findingKey = `${finding.checkId}:${finding.fingerprint}`;
+
+			if (seenFindingKeys.has(findingKey)) {
 				continue;
 			}
 
-			seenFingerprints.add(finding.fingerprint);
+			seenFindingKeys.add(findingKey);
 			dedupedFindings.push(finding);
 		}
 
@@ -209,13 +212,15 @@ export const persistScanOutcome = z
 		const existingFingerprintRows =
 			dedupedFingerprints.length > 0
 				? await db
-						.select({ fingerprint: findings.fingerprint })
+						.select({ fingerprint: findings.fingerprint, checkId: findings.checkId })
 						.from(findings)
 						.where(inArray(findings.fingerprint, dedupedFingerprints))
 				: [];
-		const existingFingerprints = new Set(existingFingerprintRows.map((row) => row.fingerprint));
+		const existingFindingKeys = new Set(
+			existingFingerprintRows.map((row) => `${row.checkId}:${row.fingerprint}`)
+		);
 		const newFindings = dedupedFindings.filter(
-			(finding) => !existingFingerprints.has(finding.fingerprint)
+			(finding) => !existingFindingKeys.has(`${finding.checkId}:${finding.fingerprint}`)
 		);
 
 		if (!hasFindingsForScan && newFindings.length > 0) {
@@ -224,6 +229,7 @@ export const persistScanOutcome = z
 					return {
 						id: randomUUID(),
 						scanId,
+						checkId: finding.checkId,
 						type: finding.type,
 						file: finding.file,
 						snippet: finding.snippet,

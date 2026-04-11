@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { RateLimiterRedis } from "rate-limiter-flexible";
 import { render } from "../../../lib/response.js";
+import { builtinChecks } from "../../../pipeline/checks.js";
 import { domainSchema } from "../../../schemas/domain.js";
 import { findingSchema } from "../../../schemas/finding.js";
 import { scanSchema } from "../../../schemas/scan.js";
@@ -36,6 +37,19 @@ const scanRateLimiter = new RateLimiterRedis({
 const scanRequestState = {
 	inFlightRequests: 0
 };
+
+const scanCheckViewSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	description: z.string(),
+	status: z.enum(["passed", "failed"]),
+	findings: z.array(
+		z.object({
+			file: z.string(),
+			snippet: z.string()
+		})
+	)
+});
 
 const scanFormSchema = z.object({
 	domain: z.string().trim().min(1).max(2048)
@@ -81,6 +95,55 @@ const checkRateLimit = z
 		} catch {
 			return false;
 		}
+	});
+
+export const buildScanChecksView = z
+	.function()
+	.args(findingSchema.array())
+	.returns(z.array(scanCheckViewSchema))
+	.implement((findingRecords) => {
+		const knownChecks = builtinChecks.map((check) => {
+			const checkFindings = findingRecords
+				.filter((finding) => finding.checkId === check.id)
+				.map((finding) => {
+					return {
+						file: finding.file,
+						snippet: finding.snippet
+					};
+				});
+
+			return {
+				id: check.id,
+				name: check.name,
+				description: check.description,
+				status: checkFindings.length > 0 ? ("failed" as const) : ("passed" as const),
+				findings: checkFindings
+			};
+		});
+
+		const knownCheckIds = new Set(builtinChecks.map((check) => check.id));
+		const unknownFindings = findingRecords.filter((finding) => !knownCheckIds.has(finding.checkId));
+		const unknownCheckIds = [...new Set(unknownFindings.map((finding) => finding.checkId))];
+		const unknownChecks = unknownCheckIds.map((checkId) => {
+			const checkFindings = unknownFindings
+				.filter((finding) => finding.checkId === checkId)
+				.map((finding) => {
+					return {
+						file: finding.file,
+						snippet: finding.snippet
+					};
+				});
+
+			return {
+				id: checkId,
+				name: `Unknown check (${checkId})`,
+				description: "Findings from a check that is not registered in the current build.",
+				status: "failed" as const,
+				findings: checkFindings
+			};
+		});
+
+		return [...knownChecks, ...unknownChecks];
 	});
 
 scanRoutes.post(
@@ -173,18 +236,14 @@ scanRoutes.get(
 			const domainRecord = domainSchema.parse(domainRows[0]);
 			const findingRows = await db.select().from(findings).where(eq(findings.scanId, scanRecord.id));
 			const findingRecords = findingSchema.array().parse(findingRows);
+			const checks = buildScanChecksView(findingRecords);
 
 			const viewProps = scanResultPagePropsSchema.parse({
 				domain: domainRecord.hostname,
 				status: scanRecord.status,
 				startedAtIso: scanRecord.startedAt.toISOString(),
 				finishedAtIso: scanRecord.finishedAt ? scanRecord.finishedAt.toISOString() : null,
-				findings: findingRecords.map((finding) => {
-					return {
-						file: finding.file,
-						snippet: finding.snippet
-					};
-				})
+				checks
 			});
 
 			return c.html(render(ScanResultPage, viewProps));
