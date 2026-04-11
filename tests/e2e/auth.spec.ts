@@ -67,6 +67,7 @@ test.describe("Magic Link Authentication", () => {
       });
 
       expect([302, 303]).toContain(response.status());
+      expect(response.headers().location).toBe("/domains");
 
       const setCookieHeader = response.headers()["set-cookie"];
       expect(setCookieHeader).toBeDefined();

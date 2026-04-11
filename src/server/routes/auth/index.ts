@@ -3,8 +3,32 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { requestMagicLink, verifyMagicLink, logout, getSession } from "../../auth/index.js";
 import { extractSessionId } from "../../auth/middleware.js";
+import { render } from "../../../lib/response.js";
+import { AuthRequestPage } from "../../../views/pages/authRequest.js";
 
 const app = new Hono();
+
+app.get(
+	"/auth/sign-in",
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			return c.html(render(AuthRequestPage, { mode: "sign-in" as const }));
+		})
+);
+
+app.get(
+	"/auth/sign-up",
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			return c.html(render(AuthRequestPage, { mode: "sign-up" as const }));
+		})
+);
 
 app.post(
   "/auth/request-link",
@@ -13,12 +37,29 @@ app.post(
     .args(z.custom<Context>())
     .returns(z.promise(z.instanceof(Response)))
     .implement(async (c) => {
-      const body = await c.req.json();
-      if (!body?.email || typeof body.email !== "string") {
+      const contentType = c.req.header("content-type") || "";
+      const body = contentType.includes("application/json")
+        ? await c.req.json()
+        : await c.req.parseBody();
+      const email = typeof body?.email === "string" ? body.email.trim() : "";
+
+      if (!email) {
         return c.json({ error: "Email is required" }, 400);
       }
-      await requestMagicLink(body.email);
-      return c.json({ success: true });
+
+      await requestMagicLink(email);
+
+      if (contentType.includes("application/json")) {
+        return c.json({ success: true });
+      }
+
+      const mode = body?.mode === "sign-up" ? "sign-up" : "sign-in";
+      return c.html(
+        render(AuthRequestPage, {
+          mode,
+          message: "Check your email for a sign-in link."
+        })
+      );
     })
 );
 
@@ -42,7 +83,7 @@ app.get(
         return new Response(null, {
           status: 302,
           headers: {
-            "Location": "/",
+            "Location": "/domains",
             "Set-Cookie": `session_id=${sessionId}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}`
           }
         });

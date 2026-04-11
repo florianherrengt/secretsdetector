@@ -294,3 +294,19 @@ Users can now build a personal watchlist of domains they care about, and the sca
 
 **Outcome:**
 The product can now enforce scan guardrails and domain uniqueness reliably in distributed deployments, while keeping stored findings cleaner under concurrent traffic.
+
+---
+
+## v0.14 — Auth Entry Experience (Step 13)
+
+**Turned authentication into a complete, user-facing entry flow from homepage to workspace**
+
+- Added dedicated auth entry pages for both sign-in and sign-up so users can start passwordless access from explicit, stable URLs
+- Upgraded homepage navigation to be session-aware: anonymous users see sign-in/sign-up actions, authenticated users get a direct path into the app
+- Extended magic-link request handling to support both API and HTML form submissions, enabling a native browser flow with immediate confirmation messaging
+- Updated post-verification routing so successful magic-link login lands users in the domain workspace instead of looping back to marketing/home
+- Hardened shared Redis client behavior for long-lived queue and rate-limit operations to reduce request retry instability
+- Expanded end-to-end coverage across auth entry navigation, auth form submission, and authenticated home-state rendering
+
+**Outcome:**
+Users can now discover authentication from the homepage, complete the magic-link request flow in-app, and arrive directly in their working domain dashboard.

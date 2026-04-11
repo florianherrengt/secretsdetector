@@ -8,5 +8,6 @@ export const redisUrl = redisUrlSchema.parse(process.env.REDIS_URL ?? REDIS_URL_
 
 export const ioredisClient = new Redis(redisUrl, {
 	enableOfflineQueue: false,
+	maxRetriesPerRequest: null,
 	lazyConnect: true
 });

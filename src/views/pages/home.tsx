@@ -11,7 +11,8 @@ const demoExamples = [
 ] as const;
 
 export const homePagePropsSchema = z.object({
-	domain: z.string().min(1)
+	domain: z.string().min(1),
+	isLoggedIn: z.boolean()
 });
 
 export type HomePageProps = z.infer<typeof homePagePropsSchema>;
@@ -20,9 +21,9 @@ export const HomePage: FC<HomePageProps> = z
 	.function()
 	.args(homePagePropsSchema)
 	.returns(z.custom<ReturnType<FC<HomePageProps>>>())
-	.implement(({ domain }) => {
+	.implement(({ domain, isLoggedIn }) => {
 		return (
-			<Layout title="Home">
+			<Layout title="Home" topNavMode={isLoggedIn ? "app" : "auth"}>
 				<section class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
 					<h1 class="text-2xl font-semibold tracking-tight">Secret Detector</h1>
 					<p class="mt-2 text-sm text-gray-600">
