@@ -388,3 +388,17 @@ Frontend consistency is now continuously enforced by automation, and demo scan f
 
 **Outcome:**
 Security scan output now supports reliable triage and repeatable investigation in one page, while UI policy enforcement is packaged as a durable, first-class quality gate.
+
+---
+
+## v0.20 — Scan Fidelity Fix + Modular Checks (Step 19)
+
+**Fixed silent finding suppression on repeat scans and modularized the detection layer**
+
+- Fixed scan persistence so each scan records its own findings independently — previous cross-scan deduplication was incorrectly suppressing all findings on re-scan of known domains
+- Decomposed the monolithic checks module into a dedicated `checks/` package with separate contracts, registry, shared utilities, and per-check implementations
+- Added end-to-end coverage for every demo example card on the homepage (PEM key, JWT, credential URL, clean baseline, multi-script leak)
+- Updated e2e assertions to match the current result UI semantics and added rate-limit resilience for reliable local test runs
+
+**Outcome:
+Every scan now reliably surfaces its findings regardless of prior scan history, and the detection architecture is organized for independent check iteration.**

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { ScanDomainOutput } from "../../pipeline/scanDomain.js";
 import { domainSchema } from "../../schemas/domain.js";
 import { scanSchema, scanStatusSchema } from "../../schemas/scan.js";
@@ -208,22 +208,9 @@ export const persistScanOutcome = z
 			.where(eq(findings.scanId, scanId))
 			.limit(1);
 		const hasFindingsForScan = existingScanFindingRows.length > 0;
-		const dedupedFingerprints = dedupedFindings.map((finding) => finding.fingerprint);
-		const existingFingerprintRows =
-			dedupedFingerprints.length > 0
-				? await db
-						.select({ fingerprint: findings.fingerprint, checkId: findings.checkId })
-						.from(findings)
-						.where(inArray(findings.fingerprint, dedupedFingerprints))
-				: [];
-		const existingFindingKeys = new Set(
-			existingFingerprintRows.map((row) => `${row.checkId}:${row.fingerprint}`)
-		);
-		const newFindings = dedupedFindings.filter(
-			(finding) => !existingFindingKeys.has(`${finding.checkId}:${finding.fingerprint}`)
-		);
+		const newFindings = hasFindingsForScan ? [] : dedupedFindings;
 
-		if (!hasFindingsForScan && newFindings.length > 0) {
+		if (newFindings.length > 0) {
 			await db.insert(findings).values(
 				newFindings.map((finding) => {
 					return {

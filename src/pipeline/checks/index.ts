@@ -10,6 +10,6 @@ export {
 	type CheckRunOutput,
 	type CheckDefinition,
 	type CheckResult,
-	type ScanCheck,
-	builtinChecks
-} from "./checks/index.js";
+	type ScanCheck
+} from "./contracts.js";
+export { builtinChecks } from "./registry.js";

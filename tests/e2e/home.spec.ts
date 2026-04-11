@@ -1,17 +1,15 @@
 import { type Page } from "@playwright/test";
 import { expect, test } from "./fixtures/authed";
 
-const domain = process.env.DOMAIN ?? "127.0.0.1:3000";
-
 const waitForScanCompletion = async (page: Page) => {
 	for (let attempt = 0; attempt < 20; attempt += 1) {
-		const statusText = await page.locator("p", { hasText: "Status:" }).textContent();
+		const statusText = await page.locator("section[aria-live='polite'] p").first().textContent();
 
-		if (statusText?.includes("success")) {
+		if (statusText?.includes("Issue Detected") || statusText?.includes("No Issues Found")) {
 			return;
 		}
 
-		if (statusText?.includes("failed")) {
+		if (!statusText?.includes("Scan In Progress")) {
 			throw new Error("Scan entered failed state during e2e test");
 		}
 
@@ -20,6 +18,34 @@ const waitForScanCompletion = async (page: Page) => {
 	}
 
 	throw new Error("Timed out waiting for scan completion");
+};
+
+const startDemoExampleScan = async (page: Page, exampleTitle: string) => {
+	for (let attempt = 0; attempt < 6; attempt += 1) {
+		const demoCard = page.locator("li", {
+			has: page.getByText(exampleTitle, { exact: true })
+		});
+
+		await demoCard.getByRole("button", { name: "Scan with tool" }).click();
+		await page.waitForURL(/\/scan(\/[0-9a-f-]{36})?$/, { timeout: 5_000 });
+
+		if (/\/scan\/[0-9a-f-]{36}$/.test(page.url())) {
+			await expect(page).toHaveTitle("Scan Result | Secret Detector");
+			await waitForScanCompletion(page);
+			return;
+		}
+
+		const limited = await page.getByRole("heading", { name: "Too Many Requests" }).count();
+
+		if (limited === 0) {
+			throw new Error(`Expected scan result redirect for "${exampleTitle}" but stayed on ${page.url()}`);
+		}
+
+		await page.waitForTimeout(2_000 * (attempt + 1));
+		await page.goto("/");
+	}
+
+	throw new Error(`Rate limit prevented scanning demo example "${exampleTitle}"`);
 };
 
 test("home page loads", async ({ page }) => {
@@ -81,55 +107,50 @@ test("sign up page submits to request-link", async ({ page }) => {
 	await expect(page.getByText("Check your email for a sign-in link.")).toBeVisible();
 });
 
-test("scan form submits and renders no-findings result", async ({ authedPage }) => {
-	const page = authedPage;
-	await page.goto("/");
+const demoExamples = [
+	{ title: "PEM key in frontend bundle", expectedCheck: "PEM Key Detection" },
+	{ title: "JWT token shipped to client", expectedCheck: "JWT Detection" },
+	{ title: "Credential in URL", expectedCheck: "Credential URL Detection" },
+	{ title: "Clean baseline", expectedCheck: null },
+	{ title: "Multiple scripts, first one leaks", expectedCheck: "Credential URL Detection" }
+] as const;
 
-	await page.getByLabel("Domain target").fill(`${domain}/sandbox/website/examples/no-leak/`);
-	await page.getByRole("button", { name: "Run scan" }).click();
+test.describe("demo example scans", () => {
+	test.describe.configure({ mode: "serial" });
 
-	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
-	await expect(page.getByRole("heading", { name: "Scan Result" })).toBeVisible();
-	await expect(page.getByText("Status:")).toBeVisible();
-	await waitForScanCompletion(page);
-	await expect(page.getByText("No findings")).toBeVisible();
-});
+	for (const demoExample of demoExamples) {
+		test(`demo example scan works: ${demoExample.title}`, async ({ authedPage }) => {
+			const page = authedPage;
+			await page.goto("/");
 
-test("scan form submits and renders redacted finding", async ({ authedPage }) => {
-	const page = authedPage;
-	await page.goto("/");
+			await startDemoExampleScan(page, demoExample.title);
 
-	await page.getByLabel("Domain target").fill(`${domain}/sandbox/website/examples/pem-key/`);
-	await page.getByRole("button", { name: "Run scan" }).click();
+			const issueSection = page.locator("section", {
+				has: page.getByRole("heading", { name: "Issue Detected" })
+			});
 
-	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
-	await expect(page.getByRole("heading", { name: "Scan Result" })).toBeVisible();
-	await waitForScanCompletion(page);
-	await expect(page.getByText("File:")).toBeVisible();
-	await expect(page.getByText("Snippet:")).toBeVisible();
-	await expect(page.getByText("[REDACTED]")).toBeVisible();
-});
+			if (demoExample.expectedCheck === null) {
+				await expect(page.locator("section[aria-live='polite']")).toContainText("No Issues Found");
+				await expect(issueSection).toContainText("No checks in this group.");
+				return;
+			}
 
-test("repeat leak scan still shows findings", async ({ authedPage }) => {
-	const page = authedPage;
-	const target = `${domain}/sandbox/website/examples/pem-key/`;
+			await expect(page.locator("section[aria-live='polite']")).toContainText("Issue Detected");
+			await expect(issueSection).toContainText(demoExample.expectedCheck);
+			await expect(page.getByText("[REDACTED]")).toBeVisible();
+		});
+	}
 
-	await page.goto("/");
+	test("repeat pem-key demo scan still shows findings", async ({ authedPage }) => {
+		const page = authedPage;
 
-	await page.getByLabel("Domain target").fill(target);
-	await page.getByRole("button", { name: "Run scan" }).click();
+		await page.goto("/");
+		await startDemoExampleScan(page, "PEM key in frontend bundle");
+		await expect(page.getByText("PEM Key Detection")).toBeVisible();
 
-	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
-	await waitForScanCompletion(page);
-	await expect(page.getByText("File:")).toBeVisible();
-
-	await page.goto("/");
-
-	await page.getByLabel("Domain target").fill(target);
-	await page.getByRole("button", { name: "Run scan" }).click();
-
-	await expect(page).toHaveURL(/\/scan\/[0-9a-f-]{36}$/);
-	await waitForScanCompletion(page);
-	await expect(page.getByText("File:")).toBeVisible();
-	await expect(page.getByText("[REDACTED]")).toBeVisible();
+		await page.goto("/");
+		await startDemoExampleScan(page, "PEM key in frontend bundle");
+		await expect(page.getByText("PEM Key Detection")).toBeVisible();
+		await expect(page.getByText("[REDACTED]")).toBeVisible();
+	});
 });
