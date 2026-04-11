@@ -1,6 +1,6 @@
 import path from "node:path";
-import { classifyFileScope } from "../../phase1/frontend-scope.js";
-import { designSystemPolicy } from "../../phase1/policy.js";
+import { classifyFileScope } from "../../design-system-enforcement/frontend-scope.js";
+import { designSystemPolicy } from "../../design-system-enforcement/policy.js";
 
 function normalizePath(filePath) {
   return filePath.split(path.sep).join("/");

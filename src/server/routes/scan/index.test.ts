@@ -16,11 +16,11 @@ describe("buildScanChecksView", () => {
 			}
 		]);
 
-		const legacy = checks.find((check) => check.id === "legacy-check");
+		const legacy = checks.find((check) => check.checkId === "legacy-check");
 
 		expect(legacy).toBeDefined();
-		expect(legacy?.status).toBe("failed");
+		expect(legacy?.status).toBe("fail");
 		expect(legacy?.findings).toHaveLength(1);
-		expect(legacy?.name).toContain("Unknown check");
+		expect(legacy?.checkName).toContain("Unknown check");
 	});
 });

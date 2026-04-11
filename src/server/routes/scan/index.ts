@@ -39,14 +39,20 @@ const scanRequestState = {
 };
 
 const scanCheckViewSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	description: z.string(),
-	status: z.enum(["passed", "failed"]),
+	checkId: z.string(),
+	checkName: z.string(),
+	status: z.enum(["pass", "fail"]),
+	classification: z.string().nullable(),
+	sourceTimestamp: z.string().nullable(),
 	findings: z.array(
 		z.object({
-			file: z.string(),
-			snippet: z.string()
+			findingId: z.string(),
+			title: z.string(),
+			description: z.string().nullable(),
+			severity: z.enum(["critical", "high", "medium", "low", "info"]).nullable(),
+			filePath: z.string().nullable(),
+			snippet: z.string().nullable(),
+			detectedAt: z.string().nullable()
 		})
 	)
 });
@@ -107,16 +113,22 @@ export const buildScanChecksView = z
 				.filter((finding) => finding.checkId === check.id)
 				.map((finding) => {
 					return {
-						file: finding.file,
-						snippet: finding.snippet
+						findingId: finding.id,
+						title: "Issue detected",
+						description: null,
+						severity: null,
+						filePath: finding.file,
+						snippet: finding.snippet,
+						detectedAt: finding.createdAt.toISOString()
 					};
 				});
 
 			return {
-				id: check.id,
-				name: check.name,
-				description: check.description,
-				status: checkFindings.length > 0 ? ("failed" as const) : ("passed" as const),
+				checkId: check.id,
+				checkName: check.name,
+				status: checkFindings.length > 0 ? ("fail" as const) : ("pass" as const),
+				classification: null,
+				sourceTimestamp: checkFindings.length > 0 ? checkFindings[0]?.detectedAt ?? null : null,
 				findings: checkFindings
 			};
 		});
@@ -129,16 +141,22 @@ export const buildScanChecksView = z
 				.filter((finding) => finding.checkId === checkId)
 				.map((finding) => {
 					return {
-						file: finding.file,
-						snippet: finding.snippet
+						findingId: finding.id,
+						title: "Issue detected",
+						description: "Findings from a check that is not registered in the current build.",
+						severity: null,
+						filePath: finding.file,
+						snippet: finding.snippet,
+						detectedAt: finding.createdAt.toISOString()
 					};
 				});
 
 			return {
-				id: checkId,
-				name: `Unknown check (${checkId})`,
-				description: "Findings from a check that is not registered in the current build.",
-				status: "failed" as const,
+				checkId,
+				checkName: `Unknown check (${checkId})`,
+				status: "fail" as const,
+				classification: null,
+				sourceTimestamp: checkFindings[0]?.detectedAt ?? null,
 				findings: checkFindings
 			};
 		});
@@ -237,12 +255,17 @@ scanRoutes.get(
 			const findingRows = await db.select().from(findings).where(eq(findings.scanId, scanRecord.id));
 			const findingRecords = findingSchema.array().parse(findingRows);
 			const checks = buildScanChecksView(findingRecords);
+			const durationMs = scanRecord.finishedAt
+				? Math.max(0, scanRecord.finishedAt.getTime() - scanRecord.startedAt.getTime())
+				: 0;
 
 			const viewProps = scanResultPagePropsSchema.parse({
-				domain: domainRecord.hostname,
+				scanId: scanRecord.id,
+				targetUrl: domainRecord.hostname,
 				status: scanRecord.status,
 				startedAtIso: scanRecord.startedAt.toISOString(),
 				finishedAtIso: scanRecord.finishedAt ? scanRecord.finishedAt.toISOString() : null,
+				durationMs,
 				checks
 			});
 

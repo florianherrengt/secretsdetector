@@ -2,8 +2,8 @@ import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 import * as custom from "../../eslint/index.js";
-import { designSystemPolicy } from "../../eslint/phase1/policy.js";
-import { validatePolicy } from "../../eslint/phase1/validate-policy.js";
+import { designSystemPolicy } from "../../eslint/design-system-enforcement/policy.js";
+import { validatePolicy } from "../../eslint/design-system-enforcement/validate-policy.js";
 
 async function lintPhase1(code: string, filePath: string) {
   const eslint = new ESLint({
@@ -35,7 +35,7 @@ async function lintPhase1(code: string, filePath: string) {
   return result.messages;
 }
 
-describe("Phase 1 CI contract", () => {
+describe("Design system CI contract", () => {
   it("fails frontend violations", async () => {
     const messages = await lintPhase1(
       "export const Example = () => <div style={{ color: 'red' }}>bad</div>;",
@@ -62,7 +62,7 @@ describe("Phase 1 CI contract", () => {
     };
 
     expect(() => validatePolicy(malformed)).toThrow(
-      "Phase 1 policy validation failed",
+      "Design system policy validation failed",
     );
   });
 });

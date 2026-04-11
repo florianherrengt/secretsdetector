@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { designSystemPolicy } from "../../eslint/phase1/policy.js";
-import { validatePolicy } from "../../eslint/phase1/validate-policy.js";
+import { designSystemPolicy } from "../../eslint/design-system-enforcement/policy.js";
+import { validatePolicy } from "../../eslint/design-system-enforcement/validate-policy.js";
 
 function clonePolicy() {
   return {
@@ -17,7 +17,7 @@ function clonePolicy() {
   };
 }
 
-describe("Phase 1 policy validation", () => {
+describe("Design system policy validation", () => {
   it("accepts the configured policy", () => {
     expect(() => validatePolicy(clonePolicy())).not.toThrow();
   });

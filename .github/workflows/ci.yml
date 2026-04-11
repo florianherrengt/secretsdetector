@@ -24,8 +24,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Phase 1 design-system enforcement
-        run: npm run lint:phase1
+      - name: Design system enforcement
+        run: npm run lint:design-system-enforcement
 
       - name: Test
         run: npm test

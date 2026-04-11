@@ -1,8 +1,8 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import * as custom from "./eslint/index.js";
-import { designSystemPolicy } from "./eslint/phase1/policy.js";
-import { validatePolicy } from "./eslint/phase1/validate-policy.js";
+import { designSystemPolicy } from "./eslint/design-system-enforcement/policy.js";
+import { validatePolicy } from "./eslint/design-system-enforcement/validate-policy.js";
 
 validatePolicy(designSystemPolicy);
 

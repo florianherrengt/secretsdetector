@@ -37,7 +37,7 @@ async function lintSnippet({
   return result.messages;
 }
 
-describe("Phase 1 custom rule behavior", () => {
+describe("Design system custom rule behavior", () => {
   it("enforces no raw HTML elements", async () => {
     const compliant = await lintSnippet({
       filePath: "src/views/pages/example.tsx",
@@ -154,7 +154,7 @@ describe("Phase 1 custom rule behavior", () => {
   });
 });
 
-describe("Phase 1 failure messages", () => {
+describe("Design system failure messages", () => {
   it("returns deterministic actionable errors", async () => {
     const [message] = await lintSnippet({
       filePath: "src/views/pages/example.tsx",

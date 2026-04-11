@@ -363,12 +363,28 @@ Every code change is now automatically verified in a clean environment, establis
 
 **Locked frontend consistency into CI and removed client-side fragility from demo scan actions**
 
-- Added a Phase 1 design-system enforcement layer through custom ESLint rules, policy validation, and scoped frontend lint execution
+- Added a design-system enforcement layer through custom ESLint rules, policy validation, and scoped frontend lint execution
 - Extended core lint configuration to enforce semantic UI constraints (approved tokens, no raw semantic styling drift, safe classname composition, suppression formatting)
-- Integrated Phase 1 enforcement into CI so pull requests now fail when frontend code diverges from the approved design system contract
+- Integrated design-system enforcement into CI so pull requests now fail when frontend code diverges from the approved design system contract
 - Added dedicated enforcement documentation and test coverage to keep policy behavior explicit and regression-resistant
 - Made demo scan actions deterministic by rendering sandbox scan targets directly in initial HTML instead of relying on runtime script mutation
 - Added integration coverage for homepage and sandbox example pages to guarantee demo "Scan with tool" works without client-side JavaScript
 
 **Outcome:**
 Frontend consistency is now continuously enforced by automation, and demo scan flows are reliable from first render across environments with or without inline script execution.
+
+---
+
+## v0.19 — Productized Scan Investigation Flow (Step 18)
+
+**Evolved scan results from a debug-oriented output into a structured investigation surface with deterministic severity and triage signals**
+
+- Rebuilt the scan result experience around a clear operator flow: breadcrumb context, global status banner, compact summary, rerun action, and grouped check outcomes
+- Introduced deterministic severity scoring and classification contracts at both check and global levels, so issue prioritization is consistent across runs
+- Shifted check rendering to fail-first expandable containers with finding-level drill-down, enabling faster path from scan completion to concrete issue review
+- Standardized result language and presentation semantics (`Issue Detected` / `No Issues Found`, issue-count grammar, `<1s` duration handling, clickable target URL, monospace evidence fields)
+- Updated scan route view-model shaping to emit the richer check/finding contract required by the new product UI while preserving unknown-check visibility
+- Promoted design-system enforcement from a temporary "phase" naming model to a stable product policy surface across lint scripts, CI workflow naming, docs, and test suites
+
+**Outcome:**
+Security scan output now supports reliable triage and repeatable investigation in one page, while UI policy enforcement is packaged as a durable, first-class quality gate.

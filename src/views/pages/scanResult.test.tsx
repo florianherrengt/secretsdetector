@@ -1,26 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { render } from "../../lib/response.js";
-import { ScanResultPage, type ScanResultPageProps } from "./scanResult.js";
+import {
+	deriveCheckFields,
+	formatDurationMs,
+	ScanResultPage,
+	type ScanResultPageProps,
+	sortChecks
+} from "./scanResult.js";
 
 const baseProps: ScanResultPageProps = {
-	domain: "example.com",
+	scanId: "53a4ed31-f9f8-4ddb-9f56-a171092d6ea2",
+	targetUrl: "example.com",
 	status: "success",
 	startedAtIso: "2026-01-01T00:00:00.000Z",
 	finishedAtIso: "2026-01-01T00:00:05.000Z",
+	durationMs: 5000,
 	checks: [
 		{
-			id: "check-1",
-			name: "PEM Key Check",
-			description: "Detects leaked PEM keys",
-			status: "passed",
+			checkId: "pem-key",
+			checkName: "PEM Key Detection",
+			status: "pass",
+			classification: null,
+			sourceTimestamp: null,
 			findings: []
 		},
 		{
-			id: "check-2",
-			name: "JWT Token Check",
-			description: "Detects leaked JWTs",
-			status: "failed",
-			findings: [{ file: "main.js", snippet: "token=[REDACTED]" }]
+			checkId: "jwt-token",
+			checkName: "JWT Detection",
+			status: "fail",
+			classification: null,
+			sourceTimestamp: "2026-01-01T00:00:03.000Z",
+			findings: [
+				{
+					findingId: "finding-1",
+					title: "Issue detected",
+					description: null,
+					severity: "high",
+					filePath: "https://example.com/main.js",
+					snippet: "token=[REDACTED]",
+					detectedAt: "2026-01-01T00:00:03.000Z"
+				}
+			]
 		}
 	]
 };
@@ -30,71 +50,105 @@ const renderPage = (overrides: Partial<ScanResultPageProps> = {}): string => {
 	return render(ScanResultPage, props) as string;
 };
 
-describe("ScanResultPage - Checks Overview visibility", () => {
-	it("does not render Checks Overview when scan is pending", () => {
-		const html = renderPage({ status: "pending", finishedAtIso: null });
+describe("ScanResultPage deterministic contracts", () => {
+	it("renders breadcrumb and global status banner", () => {
+		const html = renderPage();
 
-		expect(html).not.toContain("Checks Overview");
-		expect(html).toContain("Scan Summary");
+		expect(html).toContain("Home");
+		expect(html).toContain("Scans");
+		expect(html).toContain("Result");
+		expect(html).toContain("Global Severity: High (75)");
+		expect(html).toContain("1 Issue Found");
 	});
 
-	it("renders Checks Overview when scan succeeded", () => {
-		const html = renderPage({ status: "success" });
+	it("renders compact summary row with clickable URL and duration", () => {
+		const html = renderPage();
 
-		expect(html).toContain("Checks Overview");
-		expect(html).toContain("PEM Key Check");
-		expect(html).toContain("JWT Token Check");
+		expect(html).toContain("Target URL");
+		expect(html).toContain("href=\"https://example.com/\"");
+		expect(html).toContain("Duration");
+		expect(html).toContain("5s");
 	});
 
-	it("renders Checks Overview when scan failed", () => {
-		const html = renderPage({ status: "failed", finishedAtIso: "2026-01-01T00:00:02.000Z" });
+	it("groups checks with failed group first", () => {
+		const html = renderPage();
+		const failedIndex = html.indexOf("Issue Detected");
+		const passedIndex = html.indexOf("No Issues Found");
 
-		expect(html).toContain("Checks Overview");
+		expect(failedIndex).toBeGreaterThan(-1);
+		expect(passedIndex).toBeGreaterThan(-1);
+		expect(failedIndex).toBeLessThan(passedIndex);
 	});
 
-	it("does not render Detailed Findings when scan is pending", () => {
-		const html = renderPage({ status: "pending", finishedAtIso: null });
+	it("renders expandable findings with indexed labels", () => {
+		const html = renderPage();
 
-		expect(html).not.toContain("Detailed Findings");
+		expect(html).toContain("Finding #1");
+		expect(html).toContain("font-mono");
 	});
 
-	it("renders Detailed Findings when scan succeeded", () => {
-		const html = renderPage({ status: "success" });
+	it("renders rerun scan CTA", () => {
+		const html = renderPage();
 
-		expect(html).toContain("Detailed Findings");
+		expect(html).toContain("Re-run Scan");
+		expect(html).toContain("action=\"/scan\"");
+	});
+});
+
+describe("ScanResultPage helper contracts", () => {
+	it("formats sub-second durations as <1s", () => {
+		expect(formatDurationMs(0)).toBe("<1s");
+		expect(formatDurationMs(999)).toBe("<1s");
+		expect(formatDurationMs(1000)).toBe("1s");
 	});
 
-	it("only shows checks with findings in Detailed Findings", () => {
-		const html = renderPage({ status: "success" });
+	it("assigns medium severity to failed checks with missing finding severity", () => {
+		const result = deriveCheckFields({
+			checkId: "unknown",
+			checkName: "Unknown",
+			status: "fail",
+			classification: null,
+			sourceTimestamp: null,
+			findings: []
+		});
 
-		const summarySection = html.indexOf("Detailed Findings");
-		const beforeSummary = html.slice(0, summarySection);
-		const afterSummary = html.slice(summarySection);
-
-		expect(beforeSummary).toContain("JWT Token Check");
-		expect(afterSummary).toContain("JWT Token Check");
-		expect(afterSummary).not.toContain("PEM Key Check");
+		expect(result.severityLevel).toBe("Medium");
+		expect(result.severityScore).toBe(55);
+		expect(result.findingsResolved).toHaveLength(1);
+		expect(result.findingsResolved[0]?.title).toBe("Details unavailable");
 	});
 
-	it("renders Scan Summary for all statuses", () => {
-		const statuses: Array<ScanResultPageProps["status"]> = ["pending", "success", "failed"];
+	it("sorts checks by status, severity, issue count, name, and id", () => {
+		const checks = sortChecks([
+			{
+				checkId: "b",
+				checkName: "B Check",
+				status: "pass",
+				classification: null,
+				sourceTimestamp: null,
+				findings: []
+			},
+			{
+				checkId: "a",
+				checkName: "A Check",
+				status: "fail",
+				classification: null,
+				sourceTimestamp: null,
+				findings: [
+					{
+						findingId: "f1",
+						title: "Issue detected",
+						description: null,
+						severity: "critical",
+						filePath: null,
+						snippet: null,
+						detectedAt: null
+					}
+				]
+			}
+		]);
 
-		for (const status of statuses) {
-			const html = renderPage({ status, finishedAtIso: status === "pending" ? null : "2026-01-01T00:00:05.000Z" });
-			expect(html).toContain("Scan Summary");
-		}
-	});
-
-	it("shows running badge when pending", () => {
-		const html = renderPage({ status: "pending", finishedAtIso: null });
-
-		expect(html).toContain("running");
-		expect(html).toContain("In progress");
-	});
-
-	it("shows failed badge when failed", () => {
-		const html = renderPage({ status: "failed", finishedAtIso: "2026-01-01T00:00:02.000Z" });
-
-		expect(html).toContain("failed");
+		expect(checks[0]?.checkId).toBe("a");
+		expect(checks[1]?.checkId).toBe("b");
 	});
 });

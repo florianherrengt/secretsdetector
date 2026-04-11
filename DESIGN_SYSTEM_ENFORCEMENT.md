@@ -1,4 +1,4 @@
-# Phase 1 Static Enforcement
+# Design System Static Enforcement
 
 This project enforces frontend design-system compliance statically via ESLint and project policy contracts.
 
@@ -31,11 +31,11 @@ FileScope
 - matchedRule: string
 ```
 
-Implementation: `eslint/phase1/frontend-scope.js`
+Implementation: `eslint/design-system-enforcement/frontend-scope.js`
 
 ## Design-System Policy Definition
 
-The policy is centralized and loaded from `eslint/phase1/policy.js`.
+The policy is centralized and loaded from `eslint/design-system-enforcement/policy.js`.
 
 Contract:
 
@@ -60,7 +60,7 @@ Policy defaults are strict:
 
 ## Lint Configuration
 
-Phase 1 is enforced through ESLint custom rules:
+Design-system enforcement is applied through ESLint custom rules:
 
 - `custom/ds-no-raw-html-elements`
 - `custom/ds-no-inline-style-prop`
@@ -74,7 +74,7 @@ All are configured as `error` in `eslint.config.js`.
 
 ## Exception Policy
 
-Only local next-line suppression is allowed for Phase 1 rules:
+Only local next-line suppression is allowed for design-system rules:
 
 ```text
 eslint-disable-next-line custom/ds-<rule> -- ds-exception: TEAM-123 | justification
@@ -91,16 +91,16 @@ Malformed suppression is itself an error.
 
 ## CI Integration
 
-CI blocks merges on Phase 1 violations via `.github/workflows/ci.yml`:
+CI blocks merges on design-system violations via `.github/workflows/ci.yml`:
 
 - `npm run lint`
-- `npm run lint:phase1`
+- `npm run lint:design-system-enforcement`
 - `npm test`
 
-`lint:phase1` is defined in `package.json` and emits machine-readable JSON output.
+`lint:design-system-enforcement` is defined in `package.json` and emits machine-readable JSON output.
 
 ## Legacy Enforcement Mode
 
-Mode: `strict` (configured in `eslint/phase1/policy.js`).
+Mode: `strict` (configured in `eslint/design-system-enforcement/policy.js`).
 
-All current and future frontend files in scope must pass Phase 1 rules.
+All current and future frontend files in scope must pass design-system rules.

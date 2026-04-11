@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { classifyFileScope } from "../../eslint/phase1/frontend-scope.js";
+import { classifyFileScope } from "../../eslint/design-system-enforcement/frontend-scope.js";
 
-describe("Phase 1 frontend scope classifier", () => {
+describe("Design system frontend scope classifier", () => {
   it("classifies known frontend files deterministically", () => {
     const result = classifyFileScope("src/views/pages/home.tsx");
 
