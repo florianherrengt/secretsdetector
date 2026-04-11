@@ -20,6 +20,14 @@ describe("GET /", () => {
 		expect(html).toContain("<form action=\"/scan\" method=\"post\"");
 		expect(html).toContain("name=\"domain\"");
 	});
+
+	it("renders demo scan targets directly in initial html", async () => {
+		const res = await app.request("/");
+		expect(res.status).toBe(200);
+		const html = await res.text();
+
+		expect(html).toMatch(/name="domain"[^>]*value="[^"]*\/sandbox\/website\/examples\/pem-key\/"/);
+	});
 });
 
 describe("GET /qualify", () => {
@@ -125,6 +133,14 @@ describe("GET /sandbox/website", () => {
 		expect(html).toContain("Sandbox Website Examples");
 		expect(html).toContain("Open site example");
 		expect(html).toContain("Scan with tool");
+	});
+
+	it("renders sandbox scan targets directly in initial html", async () => {
+		const res = await app.request("/sandbox/website");
+		expect(res.status).toBe(200);
+		const html = await res.text();
+
+		expect(html).toMatch(/name="domain"[^>]*value="[^"]*\/sandbox\/website\/examples\/pem-key\/"/);
 	});
 
 	it("returns example page in folder for pem-key", async () => {

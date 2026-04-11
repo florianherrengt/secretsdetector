@@ -1,0 +1,58 @@
+import { ESLintUtils } from "@typescript-eslint/utils";
+import { getPolicy, isFrontendFile } from "./utils/design-system.js";
+
+export default ESLintUtils.RuleCreator(() => "")({
+  name: "ds-no-raw-html-elements",
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Blocks raw HTML elements that are not explicitly approved by the design-system policy",
+    },
+    schema: [],
+    messages: {
+      forbidden:
+        "Raw element '{{tag}}' is not approved. Use an approved design-system component or add an explicit policy exception.",
+    },
+  },
+  defaultOptions: [],
+  create(context) {
+    if (!isFrontendFile(context)) {
+      return {};
+    }
+
+    const policy = getPolicy();
+
+    return {
+      JSXOpeningElement(node) {
+        if (node.name.type !== "JSXIdentifier") {
+          return;
+        }
+
+        const tag = node.name.name;
+        const isRawHtml = tag === tag.toLowerCase();
+
+        if (!isRawHtml) {
+          return;
+        }
+
+        if (policy.forbiddenRawElements.has(tag)) {
+          context.report({
+            node,
+            messageId: "forbidden",
+            data: { tag },
+          });
+          return;
+        }
+
+        if (!policy.approvedRawElements.has(tag)) {
+          context.report({
+            node,
+            messageId: "forbidden",
+            data: { tag },
+          });
+        }
+      },
+    };
+  },
+});

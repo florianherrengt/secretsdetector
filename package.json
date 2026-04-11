@@ -9,6 +9,7 @@
 		"prepare": "node scripts/install-hooks.mjs",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src/ tests/",
+		"lint:phase1": "eslint src/views --format json --max-warnings=0",
 		"test": "vitest run",
 		"test:e2e": "playwright test",
 		"db:generate": "drizzle-kit generate",

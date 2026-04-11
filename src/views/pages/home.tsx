@@ -70,16 +70,15 @@ export const HomePage: FC<HomePageProps> = z
 											<a href={examplePath} class="text-sm text-foreground underline">
 												Open site
 											</a>
-											<form action="/scan" method="post">
-												<input
-													type="hidden"
-													name="domain"
-													value=""
-													data-scan-target={example.slug}
-												/>
-												<button type="submit" class="text-sm text-foreground underline">
-													Scan with tool
-												</button>
+										<form action="/scan" method="post">
+											<input
+												type="hidden"
+												name="domain"
+												value={`${domain}/sandbox/website/examples/${example.slug}/`}
+											/>
+											<button type="submit" class="text-sm text-foreground underline">
+												Scan with tool
+											</button>
 											</form>
 										</div>
 									</li>
@@ -88,15 +87,6 @@ export const HomePage: FC<HomePageProps> = z
 						</ul>
 					</Section>
 				</div>
-				<script>{`
-const host = window.location.host;
-const inputs = document.querySelectorAll('[data-scan-target]');
-for (const input of inputs) {
-  const scenario = input.getAttribute('data-scan-target');
-  if (!scenario) continue;
-  input.value = host + '/sandbox/website/examples/' + scenario + '/';
-}
-				`}</script>
 			</Layout>
 		);
 	});

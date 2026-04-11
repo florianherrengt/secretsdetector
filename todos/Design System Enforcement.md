@@ -1,5 +1,3 @@
-# PHASE 1 — Design System Enforcement (Static)
-
 ## 1. System Overview
 
 Build a **static enforcement layer** that prevents frontend code from diverging from the approved design system.

@@ -356,3 +356,19 @@ Every page in the product now shares a single design language with proper hierar
 
 **Outcome:**
 Every code change is now automatically verified in a clean environment, establishing a reliable quality gate before merge.
+
+---
+
+## v0.18 — Design System Enforcement + Deterministic Demo Actions (Step 17)
+
+**Locked frontend consistency into CI and removed client-side fragility from demo scan actions**
+
+- Added a Phase 1 design-system enforcement layer through custom ESLint rules, policy validation, and scoped frontend lint execution
+- Extended core lint configuration to enforce semantic UI constraints (approved tokens, no raw semantic styling drift, safe classname composition, suppression formatting)
+- Integrated Phase 1 enforcement into CI so pull requests now fail when frontend code diverges from the approved design system contract
+- Added dedicated enforcement documentation and test coverage to keep policy behavior explicit and regression-resistant
+- Made demo scan actions deterministic by rendering sandbox scan targets directly in initial HTML instead of relying on runtime script mutation
+- Added integration coverage for homepage and sandbox example pages to guarantee demo "Scan with tool" works without client-side JavaScript
+
+**Outcome:**
+Frontend consistency is now continuously enforced by automation, and demo scan flows are reliable from first render across environments with or without inline script execution.

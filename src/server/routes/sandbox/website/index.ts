@@ -145,6 +145,53 @@ const exampleAssetParamsSchema = z.object({
 	asset: z.string().min(1)
 });
 
+const normalizeHost = z
+	.function()
+	.args(z.string())
+	.returns(z.string())
+	.implement((rawHost) => {
+		const trimmed = rawHost.trim();
+
+		if (trimmed.length === 0) {
+			return "";
+		}
+
+		const withoutScheme = trimmed.replace(/^https?:\/\//i, "");
+		const withoutTrailingSlash = withoutScheme.replace(/\/+$/g, "");
+
+		return withoutTrailingSlash;
+	});
+
+const resolveRequestHost = z
+	.function()
+	.args(z.custom<Context>())
+	.returns(z.string().min(1))
+	.implement((c) => {
+		const forwardedHostHeader = c.req.header("x-forwarded-host") ?? "";
+		const forwardedHost = forwardedHostHeader
+			.split(",")
+			.map((segment) => normalizeHost(segment))
+			.find((segment) => segment.length > 0);
+
+		if (forwardedHost) {
+			return forwardedHost;
+		}
+
+		const hostHeader = normalizeHost(c.req.header("host") ?? "");
+
+		if (hostHeader.length > 0) {
+			return hostHeader;
+		}
+
+		const envDomain = normalizeHost(process.env.DOMAIN ?? "");
+
+		if (envDomain.length > 0) {
+			return envDomain;
+		}
+
+		return "localhost:3000";
+	});
+
 const renderExamplePage = z
 	.function()
 	.args(testScenarioSchema)
@@ -184,10 +231,12 @@ sandboxWebsiteRoutes.get(
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement((c) => {
+			const host = resolveRequestHost(c);
 			const scenarios = testScenarioSchema.options;
 			const rows = scenarios
 				.map((scenario) => {
 					const copy = scenarioCopy[scenario];
+					const scanTarget = `${host}/sandbox/website/examples/${scenario}/`;
 					return `<li>
   <h2>${copy.title}</h2>
   <p>${copy.issue}</p>
@@ -195,7 +244,7 @@ sandboxWebsiteRoutes.get(
     <a href="/sandbox/website/examples/${scenario}/">Open site example</a>
   </p>
   <form action="/scan" method="post">
-    <input type="hidden" name="domain" value="" data-scan-target="${scenario}" />
+    <input type="hidden" name="domain" value="${scanTarget}" />
     <button type="submit">Scan with tool</button>
   </form>
 </li>`;
@@ -217,15 +266,6 @@ sandboxWebsiteRoutes.get(
       ${rows}
     </ul>
   </main>
-  <script>
-    const host = window.location.host;
-    const inputs = document.querySelectorAll("[data-scan-target]");
-    for (const input of inputs) {
-      const scenario = input.getAttribute("data-scan-target");
-      if (!scenario) continue;
-      input.value = host + "/sandbox/website/examples/" + scenario + "/";
-    }
-  </script>
 </body>
 </html>`);
 		})
