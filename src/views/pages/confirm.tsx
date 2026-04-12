@@ -21,7 +21,7 @@ export const ConfirmPage: FC<ConfirmPageProps> = z
 	.returns(z.custom<ReturnType<FC<ConfirmPageProps>>>())
 	.implement((props) => {
 		return (
-			<Layout title={props.title}>
+			<Layout title={props.title} topNavMode="app">
 				<div class="space-y-6">
 					<h1 class="text-xl font-semibold text-foreground">{props.title}</h1>
 					<Section title="Please Confirm">

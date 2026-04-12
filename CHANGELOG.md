@@ -492,3 +492,31 @@ Scan results now present a stable, high-signal triage surface with stronger UX d
 
 **Outcome:**
 Domain management now supports faster triage and safer cleanup, with clear scan signal visibility and a reusable confirmation mechanism for destructive actions.
+
+---
+
+## v0.26 — Auth Nav Component + Settings Entry
+
+**Extracted top navigation auth actions into a reusable component with deterministic signed-in/signed-out behavior**
+
+- Added `AuthNavActions` component to own all auth-related top-nav button rendering
+- Updated shared `Layout` to delegate nav actions to `AuthNavActions` instead of inline conditional markup
+- Enforced signed-out contract: show only `Sign in` (`/auth/sign-in`) and `Sign up` (`/auth/sign-up`)
+- Enforced signed-in contract: show only `Settings` (`/settings`)
+- Updated authenticated pages (`/domains` and confirm page) to pass `topNavMode="app"` so the signed-in nav contract renders consistently
+- Added component-level contract tests covering both render modes and mutual exclusivity of actions
+
+**Outcome:**
+Top navigation behavior is now centralized, deterministic, and reusable across pages, with explicit mode-driven rendering for authentication state.
+
+---
+
+## v0.27 — Settings Page + Sign Out Flow
+
+**Added `/settings` page showing account email with a working sign out button**
+
+- Added `GET /settings` route protected by `requireAuth` middleware, rendering user email from session
+- Created `SettingsPage` view using existing `Layout`, `Section`, and `ScanCard` components with design-system-compliant styling
+- Updated `POST /auth/logout` to redirect form submissions to `/` (previously returned JSON only)
+- Added `text-error-foreground` to design-system policy approved tokens
+- Added unit test for unauthenticated access and e2e tests covering the full sign-out flow (visit settings, click sign out, redirected to home, session destroyed)

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { FC, PropsWithChildren } from "hono/jsx";
+import { AuthNavActions } from "./components/AuthNavActions.js";
 
 type LayoutProps = PropsWithChildren<{
 	title: string;
@@ -89,29 +90,7 @@ export const Layout: FC<LayoutProps> = z
 				<body class="mx-auto max-w-4xl bg-background p-8 font-sans text-foreground">
 					<nav class="mb-6 flex items-center justify-between border-b border-border pb-2">
 						<strong>Secret Detector</strong>
-						{navMode === "app" ? (
-							<a
-								href="/domains"
-								class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-							>
-								Go to app
-							</a>
-						) : (
-							<div class="flex items-center gap-2">
-								<a
-									href="/auth/sign-in"
-									class="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-								>
-									Sign in
-								</a>
-								<a
-									href="/auth/sign-up"
-									class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-								>
-									Sign up
-								</a>
-							</div>
-						)}
+						<AuthNavActions mode={navMode} />
 					</nav>
 					{children}
 				</body>

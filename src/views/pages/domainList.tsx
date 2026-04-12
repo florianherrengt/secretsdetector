@@ -46,7 +46,7 @@ export const DomainListPage: FC<DomainListPageProps> = z
 		};
 
 		return (
-			<Layout title="Your Domains">
+			<Layout title="Your Domains" topNavMode="app">
 				<div class="space-y-6">
 					<h1 class="text-xl font-semibold text-foreground">Your Domains</h1>
 					<Section title="Add Domain">
