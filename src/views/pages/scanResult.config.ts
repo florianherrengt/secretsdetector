@@ -2,7 +2,8 @@ export const checkClassificationById = {
 	"pem-key": "Private Key Exposure",
 	"jwt-token": "Token Exposure",
 	"credential-url": "Credential URL Exposure",
-	"generic-secret": "Generic Secret Exposure"
+	"generic-secret": "Generic Secret Exposure",
+	"localstorage-jwt": "Token Storage Exposure"
 } as const;
 
 export const classificationFallback = "General Security";

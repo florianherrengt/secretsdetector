@@ -16,7 +16,8 @@ const testScenarioSchema = z.enum([
 	"analytics-context",
 	"weak-context",
 	"env-var-key",
-	"env-var-key-clean"
+	"env-var-key-clean",
+	"localstorage-jwt"
 ]);
 
 type TestScenario = z.infer<typeof testScenarioSchema>;
@@ -81,6 +82,11 @@ const scenarioCopy: Record<TestScenario, { title: string; issue: string; findHin
 		title: "Non-sensitive env var keys (should not flag)",
 		issue: "Only generic keys like NODE_ENV and PORT appear — these are not in the sensitive keys list.",
 		findHint: "Inspect /assets/main.js and confirm no findings."
+	},
+	"localstorage-jwt": {
+		title: "JWT token stored in localStorage",
+		issue: "A JWT token is written to localStorage, exposing it to XSS theft.",
+		findHint: "Inspect /assets/main.js and look for localStorage.setItem with a token key."
 	}
 };
 
@@ -134,6 +140,10 @@ const scenarioAssets: Record<TestScenario, Record<string, string>> = {
 	},
 	"env-var-key-clean": {
 		"main.js": 'const NODE_ENV = "production"; const PORT = "3000";'
+	},
+	"localstorage-jwt": {
+		"main.js":
+			'localStorage.setItem("token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50Ijoic2VjcmV0LWRldGVjdG9yIiwiZXhwIjo0MTAyNDQ0ODAwfQ.5Vf2Idz6bVXwAxf6w7wJiv-LQvVv9dQ9Qz2nUtsL0hE");'
 	}
 };
 

@@ -261,4 +261,14 @@ describe("scanDomain local fixtures", () => {
 		expect(countFindingsForCheck({ checks: result.checks, checkId: "env-var-key" })).toBe(0);
 	});
 
+	it("detects localStorage JWT fixture", async () => {
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/localstorage-jwt/` });
+
+		expect(result.status).toBe("success");
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "localstorage-jwt" })).toBe(1);
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/localstorage-jwt/assets/main.js");
+		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
+		expect(result.findings[0]?.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+	});
+
 });

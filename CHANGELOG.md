@@ -432,3 +432,24 @@ Users can now open scan results immediately after submission, watch progress cle
 
 **Outcome:**
 The scanner now catches an additional class of frontend misconfiguration — build tools inlining real secret-bearing environment variable names — complementing existing value-based detection.
+
+---
+
+## v0.23 — LocalStorage JWT/Token Storage Detection (Step 22)
+
+**Added a new detection check for tokens and JWTs written to localStorage in client-side JavaScript**
+
+- Introduced `localstorage-jwt` check: detects unsafe persistence of tokens/JWTs via `localStorage.setItem()` and `localStorage["key"] = value` patterns
+- Detects three sink variants: `localStorage`, `window.localStorage`, `globalThis.localStorage`
+- Three triggering rules:
+  - Token-like key names (token, jwt, access_token, refresh_token, id_token, auth_token, session_token, bearer_token) — case-insensitive, hyphen/underscore normalized
+  - JWT literal values (3-segment base64url strings starting with `eyJ`) regardless of key name
+  - Token-like value identifiers regardless of key name
+- Filters out read-only operations (`getItem`, `removeItem`, `clear`) and `sessionStorage` writes
+- Filters out template literals with interpolation to avoid dynamic-value false positives
+- Uses deterministic signature-based fingerprinting (sink + normalized key + value type) for stable deduplication
+- Added positive and negative sandbox scenarios with integration tests
+- Added "Token Storage Exposure" classification in scan result UI
+
+**Outcome:**
+The scanner now detects insecure token storage patterns in localStorage — a common OWASP-documented vulnerability — complementing existing value-based and key-based detection.
