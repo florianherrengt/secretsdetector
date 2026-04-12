@@ -598,3 +598,16 @@ High-impact checks such as PEM private key exposure are no longer under-classifi
 
 **Outcome:**
 All scan creation paths (manual, scheduled, source pipeline) now go through a single function. Hourly scans run automatically for every tracked domain via BullMQ's built-in cron scheduling.
+
+---
+
+## v0.31 — Admin Queue Route Fix
+
+**Fixed admin queue monitor routing so the Bull Board UI is reachable at the documented path.**
+
+- Mounted admin queue routes under `/admin/queues` instead of the admin root
+- Kept admin-wide Basic Auth protection intact for queue pages
+- Added regression test coverage that asserts `/admin/queues` returns `200` with valid admin credentials
+
+**Outcome:**
+The queue monitor now reliably loads at `/admin/queues`, restoring expected admin observability for BullMQ jobs.

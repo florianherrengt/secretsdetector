@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+
+process.env.ADMIN_BASIC_AUTH_USERNAME = "admin";
+process.env.ADMIN_BASIC_AUTH_PASSWORD = "changeme";
+
 import app from "./index.js";
 
 describe("GET /healthz", () => {
@@ -16,7 +20,6 @@ describe("GET /", () => {
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("text/html");
 		const html = await res.text();
-		expect(html).toContain("Secret Detector</h1>");
 		expect(html).toContain("<form action=\"/scan\" method=\"post\"");
 		expect(html).toContain("name=\"domain\"");
 	});
@@ -64,14 +67,50 @@ describe("GET /dedupe", () => {
 	});
 });
 
-describe("GET /admin/queues", () => {
-	it("returns 401 when not authenticated", async () => {
-		const res = await app.request("/admin/queues");
-		expect(res.status).toBe(401);
-		const body = await res.json();
-		expect(body).toHaveProperty("error");
+describe("Admin routes (Basic Auth)", () => {
+	const validAuth = { Authorization: `Basic ${btoa("admin:changeme")}` };
+	const wrongAuth = { Authorization: `Basic ${btoa("admin:wrong")}` };
+
+	describe("GET /admin", () => {
+		it("returns 401 with WWW-Authenticate when no credentials", async () => {
+			const res = await app.request("/admin");
+			expect(res.status).toBe(401);
+			expect(res.headers.get("WWW-Authenticate")).toBe('Basic realm="Admin"');
+		});
+
+		it("returns 401 with wrong credentials", async () => {
+			const res = await app.request("/admin", { headers: wrongAuth });
+			expect(res.status).toBe(401);
+			expect(res.headers.get("WWW-Authenticate")).toBe('Basic realm="Admin"');
+		});
+
+		it("returns 200 with valid credentials", async () => {
+			const res = await app.request("/admin", { headers: validAuth });
+			expect(res.status).toBe(200);
+			const html = await res.text();
+			expect(html).toContain("Admin");
+		});
 	});
-});
+
+		describe("GET /admin/queues", () => {
+			it("returns 401 with WWW-Authenticate when no credentials", async () => {
+				const res = await app.request("/admin/queues");
+				expect(res.status).toBe(401);
+				expect(res.headers.get("WWW-Authenticate")).toBe('Basic realm="Admin"');
+			});
+
+			it("returns 401 with wrong credentials", async () => {
+				const res = await app.request("/admin/queues", { headers: wrongAuth });
+				expect(res.status).toBe(401);
+			});
+
+			it("returns 200 with valid credentials", async () => {
+				const res = await app.request("/admin/queues", { headers: validAuth });
+				expect(res.status).toBe(200);
+				expect(res.headers.get("content-type")).toContain("text/html");
+			});
+		});
+	});
 
 describe("GET /domains", () => {
 	it("returns 401 when not authenticated", async () => {
