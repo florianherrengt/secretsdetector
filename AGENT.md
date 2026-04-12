@@ -1,91 +1,43 @@
 # AGENT.md
 
-## 1. Core Principles
+## System Model
 
-### Architecture
-
-- Server is the source of truth
-- All rendering happens on the server
-- No client-side state management frameworks
-- Everything is typed and validated
-
-### Validation
-
-- All external inputs MUST be validated with Zod
-- All internal data structures MUST have TypeScript types derived from Zod
-- Zod is the single source of truth
-
-### Views
-
-- Views are pure functions
-- No side effects
-- No data fetching inside views
-- Input → JSX → HTML only
-
-### Runtime
-
-- No React runtime
-- JSX is used as a templating DSL only
-- No hooks, no hydration unless explicitly required
-
-### Client
-
-- Minimal client JavaScript
-- Prefer zero JS
-- If needed, use small isolated scripts or HTMX
+- Server is the single source of truth
+- Rendering is server-only
+- JSX = templating (no React runtime)
+- Minimal or zero client JS (HTMX if needed)
 
 ---
 
-## 2. Project Structure
+## Data & Validation
+
+- Zod defines all domain models
+- Types are **always** `z.infer`
+- No standalone TypeScript types
+
+**Validate at all boundaries:**
+
+- HTTP input
+- External APIs
+- Untrusted DB data
+
+---
+
+## Project Structure
 
 ```
 /src
-  /server
-    app.ts
-    routes/
-  /views
-    layout.tsx
-    pages/
-  /lib
-    response.tsx
+  /server        # routing + orchestration
+  /views         # pure JSX templates
+  /lib           # shared utilities
 ```
 
 ---
 
-## 3. Zod as Single Source of Truth
+## Route Contract
 
-All domain models MUST be defined using Zod.
-
-```ts
-import { z } from "zod";
-
-export const DomainSchema = z.object({
-  id: z.string(),
-  hostname: z.string(),
-});
-
-export type Domain = z.infer<typeof DomainSchema>;
-```
-
-### Rules
-
-- NEVER define a TypeScript type without a Zod schema
-- ALWAYS export both schema and inferred type
-- ALL boundaries must validate:
-  - HTTP input
-  - DB responses (if untrusted)
-  - External APIs
-
----
-
-## 4. Route Definition Pattern
-
-Each route MUST follow this structure:
-
-1. Define input schema
-2. Parse request
-3. Execute logic
-4. Render typed view
+Every route follows:
+Define Zod schemaParse requestExecute logicRender view
 
 ```ts
 const QuerySchema = z.object({
@@ -94,43 +46,36 @@ const QuerySchema = z.object({
 
 app.get("/domains", async (c) => {
   const query = QuerySchema.parse(c.req.query());
-
   const domains = await listDomains(query);
-
   return c.html(render(DomainsPage, { domains }));
 });
 ```
 
-### Hard Rules
+**Rules:**
 
-- NEVER access `c.req` directly without Zod parsing
-- NEVER pass unvalidated data into views
+- Never use unparsed `c.req`
+- Never pass unvalidated data to views
 
 ---
 
-## 5. View System (JSX)
+## Views
 
-### View Rules
+Views are pure, typed functions.
 
-Views MUST:
+**Allowed:**
 
-- be pure functions
-- be fully typed
-- receive only validated data
+- Input → JSX
 
-Views MUST NOT:
+**Forbidden:**
 
-- fetch data
-- mutate state
-- access global context
-
-### Example
+- Data fetching
+- State mutation
+- Global access
 
 ```tsx
 export function DomainsPage({ domains }: { domains: Domain[] }) {
   return (
     <Layout title="Domains">
-      <h1>Domains</h1>
       {domains.map((d) => (
         <DomainCard domain={d} />
       ))}
@@ -141,30 +86,15 @@ export function DomainsPage({ domains }: { domains: Domain[] }) {
 
 ---
 
-## 6. Layout System
+## Layout
 
-```tsx
-export function Layout({ title, children }: { title: string; children: any }) {
-  return (
-    <html>
-      <head>
-        <title>{title}</title>
-      </head>
-      <body>{children}</body>
-    </html>
-  );
-}
-```
-
-### Rules
-
-- One root layout
-- Nested layouts allowed but simple
-- No complex head management
+- Single root layout
+- Keep nesting simple
+- No complex head logic
 
 ---
 
-## 7. Response Helpers
+## Rendering
 
 ```ts
 export function render<T>(
@@ -177,39 +107,108 @@ export function render<T>(
 
 ---
 
-## 8. Forbidden Patterns
+## Constraints
 
-The agent MUST NOT:
+**Do not introduce:**
 
-- Introduce React, Vue, or SPA frameworks
-- Use client-side state libraries
-- Fetch data inside JSX
-- Use `any`
-- Bypass Zod validation
-- Generate raw HTML strings
-- Introduce complex build pipelines
-
----
-
-## 9. Design Philosophy
-
-The system should feel like:
-
-> **Backend-first with structured HTML generation + data pipeline**
-
-NOT:
-
-> frontend app running on the server
+- SPA frameworks (React/Vue/etc.)
+- Client state libraries
+- Data fetching in JSX
+- `any`
+- Raw HTML strings
+- Skipping validation
+- Complex build systems
 
 ---
 
-## 10. Agent Behavior Rules
+## Design Principle
 
-When generating code, the agent MUST:
+> Backend-driven HTML with strict data contracts
 
-- Start from Zod schemas
-- Derive types from schemas
-- Validate all inputs
-- Keep views pure and simple
-- Prefer clarity over abstraction
-- Avoid premature optimization
+---
+
+## Agent Rules
+
+- Start from Zod
+- Derive all types
+- Validate everything
+- Keep views pure
+- Prefer simple over abstract
+
+---
+
+## Tooling
+
+- Use `brave_*` for search
+- Use `cloudflare_get_url_markdown` for page retrieval
+
+---
+
+## Error Investigation Protocol
+
+When encountering an error, you MUST gather external context before attempting a fix.
+
+- Never guess fixes without external confirmation
+- Never rely solely on internal knowledge for non-trivial errors
+- Always ground fixes in real-world sources when debugging
+
+1. **Search**
+   - Use `brave_*` to search for the exact error message
+   - Include stack trace, library name, and environment when available
+
+2. **Select Sources**
+   - Official documentation
+   - GitHub issues
+   - Maintainer discussions
+
+3. **Fetch Content**
+   - Use `cloudflare_get_url_markdown` on relevant results
+   - Extract concrete causes, constraints, and known fixes
+
+4. **Then Act**
+   - Diagnose root cause
+   - Propose fix
+
+This process may be skipped **only if**:
+
+- The error is trivial and deterministic
+  (e.g. missing import, typo, type mismatch clearly explained by compiler)
+
+If there is any ambiguity → **DO NOT SKIP**
+
+Add this as a **concise, enforceable extension**:
+
+---
+
+## Research & Dependency Strategy
+
+Before implementing any non-trivial functionality, the agent MUST verify whether a well-maintained solution already exists.
+
+- Do not reinvent solved problems
+- Do not introduce obscure or unmaintained packages
+- Do not add dependencies without justification
+- Prefer simple, focused libraries over large frameworks
+
+1. **Search**
+   - Use `brave_*` to search for:
+     - Existing libraries
+     - Standard approaches
+     - Best practices
+
+2. **Evaluate Options**
+   Prefer solutions that are:
+   - Widely adopted
+   - Recently maintained
+   - Well documented
+   - Actively used in production
+
+3. **Validate Library Health**
+   Check:
+   - Recent commits (not abandoned)
+   - Download/activity signals
+   - Community usage (issues, stars, discussions)
+
+4. **Decide**
+
+- If a solid library exists → **use it**
+- If not → implement minimal custom solution

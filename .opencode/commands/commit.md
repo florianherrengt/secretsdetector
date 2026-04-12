@@ -1,4 +1,9 @@
 You are responsible for maintaining a **product-level changelog** and committing changes.
+The user gave you this for context:
+
+```text
+$ARGUMENTS
+```
 
 This repository does **not** use conventional changelog formats.
 It uses **versioned narrative entries** (v0.x), each describing a meaningful product milestone.

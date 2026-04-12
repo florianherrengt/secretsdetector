@@ -152,3 +152,15 @@ describe("ScanResultPage helper contracts", () => {
 		expect(checks[1]?.checkId).toBe("b");
 	});
 });
+
+describe("ScanResultPage pending state", () => {
+	it("renders loading state without check results when status is pending", () => {
+		const html = renderPage({ status: "pending", checks: [], finishedAtIso: null, durationMs: 0 });
+
+		expect(html).toContain("Scan In Progress");
+		expect(html).toContain("Waiting for scan results\u2026");
+		expect(html).not.toContain("Global Severity");
+		expect(html).not.toContain("Re-run Scan");
+		expect(html).not.toContain("Duration");
+	});
+});

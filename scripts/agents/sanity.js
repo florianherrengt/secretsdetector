@@ -71,7 +71,7 @@ function buildSummary(results) {
     lines.push("");
   }
   for (const [key, r] of passed) {
-    lines.push(`${LABELS[key] ?? key}: ${r.summary}`);
+    lines.push(`- ${r.summary}`);
   }
   return lines.join("\n").trim();
 }

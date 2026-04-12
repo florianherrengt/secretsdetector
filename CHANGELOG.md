@@ -402,3 +402,17 @@ Security scan output now supports reliable triage and repeatable investigation i
 
 **Outcome:
 Every scan now reliably surfaces its findings regardless of prior scan history, and the detection architecture is organized for independent check iteration.**
+
+---
+
+## v0.21 — Pending Scan Result Experience (Step 20)
+
+**Turned in-flight scans into a dedicated live state so operators can monitor progress without interim noise**
+
+- Added a scan-result pending mode with automatic refresh and explicit in-progress messaging while jobs are still running
+- Split pending and completed rendering paths so investigation-only signals (global severity, duration, rerun action) appear only after results exist
+- Preserved key run context during execution (target URL and start timestamp) so users can confirm what is being processed in real time
+- Added contract coverage to lock visibility rules for pending scans and prevent regressions in state transitions
+
+**Outcome:**
+Users can now open scan results immediately after submission, watch progress clearly, and move into triage only when complete data is available.

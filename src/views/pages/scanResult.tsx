@@ -325,6 +325,64 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 	.args(scanResultPagePropsSchema)
 	.returns(z.custom<ReturnType<FC<ScanResultPageProps>>>())
 	.implement((props) => {
+		const targetUrlHref = toHref(props.targetUrl);
+
+		if (props.status === "pending") {
+			return (
+				<Layout title="Scan Result" autoRefreshSeconds={1}>
+					<div class="space-y-6">
+						<nav aria-label="Breadcrumb" class="text-sm text-muted-foreground">
+							<div class="flex items-center gap-2">
+								<a class="underline" href="/">
+									Home
+								</a>
+								<span>/</span>
+								<a class="underline" href="/scan">
+									Scans
+								</a>
+								<span>/</span>
+								<a class="truncate underline" href={`/scan/${props.scanId}`}>
+									{props.scanId}
+								</a>
+								<span>/</span>
+								<span aria-current="page" class="text-foreground">
+									Result
+								</span>
+							</div>
+						</nav>
+
+						<section class="rounded-lg border border-success/25 bg-success/10 p-4 text-success" aria-live="polite">
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+								<p class="text-sm font-semibold">Scan In Progress</p>
+								<p class="text-sm font-medium">{"Waiting for scan results\u2026"}</p>
+							</div>
+						</section>
+
+						<section class="rounded-lg border border-primary/30 bg-card p-4">
+							<div class="grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+								<div>
+									<p class="font-medium text-foreground">Target URL</p>
+									{targetUrlHref.isValid ? (
+										<a href={targetUrlHref.href} class="break-words underline" target="_blank" rel="noreferrer">
+											{props.targetUrl}
+										</a>
+									) : (
+										<span title="Invalid URL" class="break-words">
+											{props.targetUrl}
+										</span>
+									)}
+								</div>
+								<div>
+									<p class="font-medium text-foreground">Started</p>
+									<p class="font-mono text-xs">{formatTimestampUtc(props.startedAtIso)}</p>
+								</div>
+							</div>
+						</section>
+					</div>
+				</Layout>
+			);
+		}
+
 		const sortedChecks = sortChecks(props.checks);
 		const checksDerived = sortedChecks.map((check) => {
 			return {
@@ -335,12 +393,9 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 		const failedChecks = checksDerived.filter((check) => check.status === "fail");
 		const passedChecks = checksDerived.filter((check) => check.status === "pass");
 		const global = deriveGlobalFields(checksDerived);
-		const scanStatusLabel =
-			props.status === "pending" ? "Scan In Progress" : global.totalIssues > 0 ? "Issue Detected" : "No Issues Found";
-		const targetUrlHref = toHref(props.targetUrl);
 
 		return (
-			<Layout title="Scan Result" autoRefreshSeconds={props.status === "pending" ? 1 : undefined}>
+			<Layout title="Scan Result">
 				<div class="space-y-6">
 					<nav aria-label="Breadcrumb" class="text-sm text-muted-foreground">
 						<div class="flex items-center gap-2">
@@ -377,7 +432,7 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 						aria-live="polite"
 					>
 						<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-							<p class="text-sm font-semibold">{scanStatusLabel}</p>
+							<p class="text-sm font-semibold">{global.totalIssues > 0 ? "Issue Detected" : "No Issues Found"}</p>
 							<p class="text-sm font-medium">
 								{formatIssueCountLabel(global.totalIssues)} • Global Severity: {global.globalSeverityLevel} (
 								{global.globalSeverityScore})
