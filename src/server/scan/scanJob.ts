@@ -8,7 +8,7 @@ import { db } from "../db/client.js";
 import { domains, findings, scans } from "../db/schema.js";
 
 export const scanQueueJobDataSchema = z.object({
-	domain: z.string().min(1)
+	domainId: z.string().uuid()
 });
 
 export type ScanQueueJobData = z.infer<typeof scanQueueJobDataSchema>;
@@ -255,4 +255,48 @@ export const markScanAsFailed = z
 				finishedAt: new Date()
 			})
 			.where(eq(scans.id, scanId));
+	});
+
+export const getDomainById = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(domainSchema.nullable()))
+	.implement(async (domainId) => {
+		const rows = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
+
+		if (!rows[0]) {
+			return null;
+		}
+
+		return domainSchema.parse(rows[0]);
+	});
+
+export const createScanResultSchema = z.object({
+	scanId: z.string().uuid()
+});
+
+export const createScanForDomainId = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(createScanResultSchema))
+	.implement(async (domainId) => {
+		const scanRecord = await createPendingScanRecord(domainId);
+		const jobPayload = scanQueueJobDataSchema.parse({ domainId });
+
+		const { enqueueScanJob } = await import("./scanQueue.js");
+
+		try {
+			await enqueueScanJob(scanRecord.id, jobPayload);
+		} catch (error) {
+			await markScanAsFailed(scanRecord.id);
+			const normalizedError = error instanceof Error ? error : new Error("Unknown enqueue error");
+
+			console.error("[create-scan] Failed to enqueue scan job", {
+				scanId: scanRecord.id,
+				domainId,
+				error: normalizedError.message
+			});
+		}
+
+		return createScanResultSchema.parse({ scanId: scanRecord.id });
 	});

@@ -5,11 +5,14 @@ import type { Context } from "hono";
 import { serve } from "@hono/node-server";
 import indexRoutes from "./routes/index.js";
 import { startScanWorker } from "./scan/scanWorker.js";
+import { registerHourlyScheduler, startSchedulerWorker } from "./scheduler/schedulerQueue.js";
 
 const app = new Hono();
 
 if (process.env.NODE_ENV !== "test") {
 	startScanWorker();
+	startSchedulerWorker();
+	void registerHourlyScheduler();
 }
 
 app.route("/", indexRoutes);

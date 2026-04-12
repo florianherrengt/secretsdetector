@@ -577,3 +577,24 @@ The product now has one reliable, production-like demo target that doubles as a 
 
 **Outcome:**
 High-impact checks such as PEM private key exposure are no longer under-classified in the investigation UI when legacy/null finding severity is returned from persistence.
+
+---
+
+## v0.7 — Hourly Scheduled Scans
+
+**Introduced unified scan creation and BullMQ-based hourly scheduling**
+
+- Added `createScanForDomainId(domainId)`: single orchestration function for scan creation
+  - Creates pending scan record, enqueues job, handles enqueue failures
+  - Replaces scattered create+enqueue+fail patterns across codebase
+- Switched queue contract from `{ domain }` to `{ domainId }`
+  - Worker resolves domain from DB via `getDomainById`
+  - Missing/deleted domains fail gracefully (return without throwing)
+- Added BullMQ job scheduler (`upsertJobScheduler`) with cron pattern `0 * * * *`
+  - Fires every hour on the hour for all domains in the database
+  - Separate `schedulerQueue` with its own worker
+- Refactored manual scan route and sources pipeline to use shared `createScanForDomainId`
+- Scheduler `dispatchScans` continues on per-domain errors instead of fail-fast
+
+**Outcome:**
+All scan creation paths (manual, scheduled, source pipeline) now go through a single function. Hourly scans run automatically for every tracked domain via BullMQ's built-in cron scheduling.

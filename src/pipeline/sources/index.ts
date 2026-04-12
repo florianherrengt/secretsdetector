@@ -3,11 +3,9 @@ import { inArray } from "drizzle-orm";
 import { db } from "../../server/db/client.js";
 import { domains } from "../../server/db/schema.js";
 import {
-	createPendingScanRecord,
-	scanQueueJobDataSchema,
+	createScanForDomainId,
 	upsertDomainRecord
 } from "../../server/scan/scanJob.js";
-import { enqueueScanJob } from "../../server/scan/scanQueue.js";
 import { qualifyDomain } from "../qualifyDomain.js";
 import { crtshSource } from "./crtsh.js";
 import { productHuntSource } from "./producthunt.js";
@@ -194,10 +192,7 @@ export const runSourcePipeline = z
 		for (const q of qualified) {
 			try {
 				const domainRecord = await upsertDomainRecord(q.domain);
-				const scanRecord = await createPendingScanRecord(domainRecord.id);
-				const jobPayload = scanQueueJobDataSchema.parse({ domain: q.domain });
-
-				await enqueueScanJob(scanRecord.id, jobPayload);
+				await createScanForDomainId(domainRecord.id);
 				enqueuedDomains.push(q.domain);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "Unknown enqueue error";

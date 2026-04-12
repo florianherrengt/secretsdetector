@@ -1,13 +1,15 @@
 import { Job, Worker } from "bullmq";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { scanDomain } from "../../pipeline/scanDomain.js";
 import { scanStatusSchema } from "../../schemas/scan.js";
+import { db } from "../db/client.js";
+import { scans } from "../db/schema.js";
 import {
+	getDomainById,
 	markScanAsFailed,
 	persistScanOutcome,
-	resolveScanRecordForJob,
 	scanQueueJobDataSchema,
-	upsertDomainRecord,
 	type ScanQueueJobData
 } from "./scanJob.js";
 import { scanQueueName } from "./scanQueue.js";
@@ -22,22 +24,24 @@ const scanWorkerResultSchema = z.object({
 
 type ScanWorkerResult = z.infer<typeof scanWorkerResultSchema>;
 
-const parseScanIdFromJobId = z
+const getScanRecordById = z
 	.function()
-	.args(z.union([z.string(), z.undefined()]))
-	.returns(z.string().uuid().nullable())
-	.implement((jobId) => {
-		if (!jobId) {
+	.args(z.string().uuid())
+	.returns(z.promise(z.object({
+		id: z.string().uuid(),
+		domainId: z.string().uuid(),
+		status: scanStatusSchema,
+		startedAt: z.date(),
+		finishedAt: z.date().nullable()
+	}).nullable()))
+	.implement(async (scanId) => {
+		const rows = await db.select().from(scans).where(eq(scans.id, scanId)).limit(1);
+
+		if (!rows[0]) {
 			return null;
 		}
 
-		const parsedScanId = z.string().uuid().safeParse(jobId);
-
-		if (!parsedScanId.success) {
-			return null;
-		}
-
-		return parsedScanId.data;
+		return rows[0];
 	});
 
 const processScanQueueJob = z
@@ -55,23 +59,45 @@ const processScanQueueJob = z
 			throw new Error("Invalid scan queue payload");
 		}
 
-		const domain = parsedPayload.data.domain;
-		const scanIdFromJob = parseScanIdFromJobId(job.id);
+		const { domainId } = parsedPayload.data;
+		const domainRecord = await getDomainById(domainId);
+
+		if (!domainRecord) {
+			console.warn("[scan-worker] Domain not found, failing scan", {
+				jobId: job.id,
+				domainId
+			});
+
+			const scanRecord = await getScanRecordById(job.id ?? "");
+			if (scanRecord) {
+				await markScanAsFailed(scanRecord.id);
+			}
+
+			return scanWorkerResultSchema.parse({
+				scanId: scanRecord?.id ?? "",
+				status: "failed",
+				findingsCount: 0,
+				insertedFindingsCount: 0
+			});
+		}
+
+		const domain = domainRecord.hostname;
 
 		console.log("[scan-worker] Job started", {
 			jobId: job.id,
+			domainId,
 			domain
 		});
-		console.log("[scan-worker] Qualification result", {
-			jobId: job.id,
-			result: "not-used"
-		});
 
-		const domainRecord = await upsertDomainRecord(domain);
-		const scanRecord = await resolveScanRecordForJob({
-			domainId: domainRecord.id,
-			scanId: scanIdFromJob
-		});
+		const scanRecord = await getScanRecordById(job.id ?? "");
+
+		if (!scanRecord) {
+			console.error("[scan-worker] Scan record not found", {
+				jobId: job.id,
+				domainId
+			});
+			throw new Error(`Scan record not found for job ${job.id}`);
+		}
 
 		try {
 			const pipelineResult = await scanDomain({ domain });
