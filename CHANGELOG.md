@@ -561,3 +561,19 @@ Scans now detect publicly accessible source map files that expose original sourc
 
 **Outcome:**
 The product now has one reliable, production-like demo target that doubles as a strict regression harness for all built-in detectors, making check evolution safer and easier to validate.
+
+---
+
+## v0.30 — Severity Defaults for Check-Level Findings
+
+**Improved scan result severity classification when findings do not yet carry explicit per-finding severity values.**
+
+- Added a deterministic `defaultSeverityLevelByCheckId` mapping in scan result configuration
+- Assigned `pem-key`, `jwt-token`, and `credential-url` to `High` by default
+- Assigned `generic-secret`, `localstorage-jwt`, and `public-source-map` to `Medium` by default
+- Updated severity derivation to prefer explicit finding severity when present and otherwise use the check-level default
+- Preserved `Medium` as fallback for unknown checks with missing finding severity
+- Added regression test coverage to enforce that `pem-key` findings without explicit severity resolve to `High (75)`
+
+**Outcome:**
+High-impact checks such as PEM private key exposure are no longer under-classified in the investigation UI when legacy/null finding severity is returned from persistence.

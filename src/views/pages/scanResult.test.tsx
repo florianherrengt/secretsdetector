@@ -117,6 +117,30 @@ describe("ScanResultPage helper contracts", () => {
 		expect(result.findingsResolved[0]?.title).toBe("Details unavailable");
 	});
 
+	it("assigns high severity to pem key findings without explicit severity", () => {
+		const result = deriveCheckFields({
+			checkId: "pem-key",
+			checkName: "PEM Key Detection",
+			status: "fail",
+			classification: null,
+			sourceTimestamp: "2026-01-01T00:00:03.000Z",
+			findings: [
+				{
+					findingId: "finding-pem",
+					title: "Issue detected",
+					description: null,
+					severity: null,
+					filePath: "https://example.com/main.js",
+					snippet: "-----BEGIN PRIVATE KEY-----",
+					detectedAt: "2026-01-01T00:00:03.000Z"
+				}
+			]
+		});
+
+		expect(result.severityLevel).toBe("High");
+		expect(result.severityScore).toBe(75);
+	});
+
 	it("sorts checks by status, severity, issue count, name, and id", () => {
 		const checks = sortChecks([
 			{

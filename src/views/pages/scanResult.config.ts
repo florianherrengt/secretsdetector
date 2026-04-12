@@ -18,6 +18,15 @@ export const severityRankByFinding = {
 	null: 0
 } as const;
 
+export const defaultSeverityLevelByCheckId = {
+	"pem-key": "High",
+	"jwt-token": "High",
+	"credential-url": "High",
+	"generic-secret": "Medium",
+	"localstorage-jwt": "Medium",
+	"public-source-map": "Medium"
+} as const;
+
 export const severityScoreByLevel = {
 	Critical: 95,
 	High: 75,

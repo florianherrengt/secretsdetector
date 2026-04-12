@@ -3,6 +3,7 @@ import type { FC } from "hono/jsx";
 import {
 	checkClassificationById,
 	classificationFallback,
+	defaultSeverityLevelByCheckId,
 	severityRankByFinding,
 	severityScoreByLevel
 } from "./scanResult.config.js";
@@ -139,7 +140,16 @@ const deriveCheckSeverityLevel = z
 			return "None";
 		}
 
-		const maxRank = check.findings.reduce((currentMax, finding) => {
+		const findingsWithExplicitSeverity = check.findings.filter((finding) => finding.severity !== null);
+
+		if (findingsWithExplicitSeverity.length === 0) {
+			return (
+				defaultSeverityLevelByCheckId[check.checkId as keyof typeof defaultSeverityLevelByCheckId] ??
+				"Medium"
+			);
+		}
+
+		const maxRank = findingsWithExplicitSeverity.reduce((currentMax, finding) => {
 			const rankKey = finding.severity ?? "null";
 			const rank = severityRankByFinding[rankKey];
 			return rank > currentMax ? rank : currentMax;
