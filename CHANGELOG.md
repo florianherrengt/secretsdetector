@@ -520,6 +520,7 @@ Top navigation behavior is now centralized, deterministic, and reusable across p
 - Updated `POST /auth/logout` to redirect form submissions to `/` (previously returned JSON only)
 - Added `text-error-foreground` to design-system policy approved tokens
 - Added unit test for unauthenticated access and e2e tests covering the full sign-out flow (visit settings, click sign out, redirected to home, session destroyed)
+- Removed non-null assertion on `c.user` in settings route, replaced with explicit guard
 
 ---
 
