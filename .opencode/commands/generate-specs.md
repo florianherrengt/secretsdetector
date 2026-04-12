@@ -34,6 +34,40 @@ Deliver a specification that enables an agent to implement the system **without 
 - You may include **small illustrative snippets or pseudo-structures only when necessary for clarity**, but never full implementations
 - Avoid ambiguity, assumptions, or high-level handwaving
 
+### Research & External Validation
+
+- When the specification depends on **facts that may be outdated, incomplete, version-specific, vendor-specific, or ecosystem-specific**, you **must perform web research before writing the spec**
+- Use web research especially for:
+  - third-party APIs
+  - SDKs and libraries
+  - framework capabilities and limitations
+  - package health and maintenance status
+  - browser/platform support
+  - infrastructure services and pricing-sensitive constraints
+  - security recommendations
+  - official documentation for tools being integrated
+
+- Prefer sources in this order:
+  1. **official documentation**
+  2. **official repositories**
+  3. **maintainer-authored references**
+  4. reputable ecosystem sources only if primary sources are insufficient
+
+- Do **not** guess about external systems when the answer can be verified
+- If research reveals uncertainty, conflicting guidance, or multiple valid options, explicitly document:
+  - what was verified
+  - what remains uncertain
+  - which option is recommended
+  - why that option was chosen
+
+- Any recommendation involving a dependency or external service must be justified using:
+  - maintenance/activity
+  - maturity/adoption
+  - compatibility with the requested stack
+  - operational risk
+
+- If the user-provided base specs conflict with verified external constraints, the spec must call that out explicitly and propose the safest compliant design
+
 ### Required Sections
 
 At minimum, include:

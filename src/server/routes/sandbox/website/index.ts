@@ -14,7 +14,9 @@ const testScenarioSchema = z.enum([
 	"generic-token-invalid",
 	"public-key",
 	"analytics-context",
-	"weak-context"
+	"weak-context",
+	"env-var-key",
+	"env-var-key-clean"
 ]);
 
 type TestScenario = z.infer<typeof testScenarioSchema>;
@@ -69,6 +71,16 @@ const scenarioCopy: Record<TestScenario, { title: string; issue: string; findHin
 		title: "Weak context should be ignored",
 		issue: "A long random-looking string appears without secret-related context.",
 		findHint: "Inspect /assets/main.js and check that only a generic value variable is used."
+	},
+	"env-var-key": {
+		title: "Environment variable key with assigned secret",
+		issue: "A known sensitive environment variable key name is assigned a string literal value in client-side JavaScript.",
+		findHint: "Inspect /assets/main.js and look for AWS_SECRET_ACCESS_KEY assigned a value."
+	},
+	"env-var-key-clean": {
+		title: "Non-sensitive env var keys (should not flag)",
+		issue: "Only generic keys like NODE_ENV and PORT appear — these are not in the sensitive keys list.",
+		findHint: "Inspect /assets/main.js and confirm no findings."
 	}
 };
 
@@ -116,6 +128,12 @@ const scenarioAssets: Record<TestScenario, Record<string, string>> = {
 	},
 	"weak-context": {
 		"main.js": 'const value = "V9wQ1zN7mB4cK2rT8yP0sD6fH3jL5xA9";'
+	},
+	"env-var-key": {
+		"main.js": 'const AWS_SECRET_ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";'
+	},
+	"env-var-key-clean": {
+		"main.js": 'const NODE_ENV = "production"; const PORT = "3000";'
 	}
 };
 

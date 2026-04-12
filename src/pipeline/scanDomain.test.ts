@@ -244,4 +244,21 @@ describe("scanDomain local fixtures", () => {
 		expect(result[1]?.findings).toHaveLength(1);
 	});
 
+	it("detects env var key leak fixture", async () => {
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/env-var-key/` });
+
+		expect(result.status).toBe("success");
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "env-var-key" })).toBe(1);
+		expect(result.findings[0]?.file).toContain("/sandbox/website/examples/env-var-key/assets/main.js");
+		expect(result.findings[0]?.snippet).toContain("[REDACTED]");
+		expect(result.findings[0]?.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+	});
+
+	it("ignores non-sensitive env var keys", async () => {
+		const result = await scanDomain({ domain: `localhost:${TEST_PORT}/sandbox/website/examples/env-var-key-clean/` });
+
+		expect(result.status).toBe("success");
+		expect(countFindingsForCheck({ checks: result.checks, checkId: "env-var-key" })).toBe(0);
+	});
+
 });

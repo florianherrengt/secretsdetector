@@ -416,3 +416,19 @@ Every scan now reliably surfaces its findings regardless of prior scan history, 
 
 **Outcome:**
 Users can now open scan results immediately after submission, watch progress clearly, and move into triage only when complete data is available.
+
+---
+
+## v0.22 — Environment Variable Key Leak Detection (Step 21)
+
+**Added a new detection check for known sensitive environment variable key names inlined into client-side bundles**
+
+- Introduced `env-var-key` check: detects when build tools leak sensitive env var keys as JavaScript identifiers with hardcoded string values (e.g., `AWS_SECRET_ACCESS_KEY = "AKIA..."`)
+- Curated a list of ~55 known sensitive key names (AWS, Azure, database URLs, API tokens, etc.) with an implausible-value blocklist to suppress placeholder noise
+- Detects both `=` assignment and `:` object-property forms, case-insensitive, with identifier-boundary guards to prevent partial matches
+- Filters out non-leak patterns: `process.env.` references, function/variable assignments, template literals with interpolation, and implausible values like `"test"` or `"changeme"`
+- Added positive and negative sandbox scenarios with integration tests
+- Added "Environment variable key leak" to the homepage demo examples
+
+**Outcome:**
+The scanner now catches an additional class of frontend misconfiguration — build tools inlining real secret-bearing environment variable names — complementing existing value-based detection.

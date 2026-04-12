@@ -9,6 +9,7 @@ const demoExamples = [
 	{ slug: "pem-key", title: "PEM key in frontend bundle" },
 	{ slug: "jwt", title: "JWT token shipped to client" },
 	{ slug: "credential-url", title: "Credential in URL" },
+	{ slug: "env-var-key", title: "Environment variable key leak" },
 	{ slug: "no-leak", title: "Clean baseline" },
 	{ slug: "multiple", title: "Multiple scripts, first one leaks" }
 ] as const;
