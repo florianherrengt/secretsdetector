@@ -59,6 +59,10 @@ describe("persistScanOutcome discovery metadata persistence", () => {
 			checks: [],
 			findings: [],
 			discoveredSubdomains: ["a.example.com", "b.example.com"],
+			subdomainAssetCoverage: [
+				{ subdomain: "a.example.com", scannedAssetPaths: ["assets/a.js"] },
+				{ subdomain: "b.example.com", scannedAssetPaths: ["assets/b.js"] }
+			],
 			discoveryStats: {
 				fromLinks: 2,
 				fromSitemap: 1,
@@ -83,7 +87,11 @@ describe("persistScanOutcome discovery metadata persistence", () => {
 						totalConsidered: 8,
 						totalAccepted: 2,
 						truncated: false
-					}
+					},
+					subdomainAssetCoverage: [
+						{ subdomain: "a.example.com", scannedAssetPaths: ["assets/a.js"] },
+						{ subdomain: "b.example.com", scannedAssetPaths: ["assets/b.js"] }
+					]
 				}
 			})
 		);
@@ -96,5 +104,9 @@ describe("persistScanOutcome discovery metadata persistence", () => {
 			totalAccepted: 2,
 			truncated: false
 		});
+		expect(result.subdomainAssetCoverage).toEqual([
+			{ subdomain: "a.example.com", scannedAssetPaths: ["assets/a.js"] },
+			{ subdomain: "b.example.com", scannedAssetPaths: ["assets/b.js"] }
+		]);
 	});
 });

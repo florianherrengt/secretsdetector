@@ -18,7 +18,13 @@ export const scanSchema = z.object({
 	finishedAt: z.date().nullable(),
 	discoveryMetadata: z.object({
 		discoveredSubdomains: z.array(z.string()),
-		stats: discoveryStatsSchema
+		stats: discoveryStatsSchema,
+		subdomainAssetCoverage: z.array(
+			z.object({
+				subdomain: z.string(),
+				scannedAssetPaths: z.array(z.string())
+			})
+		)
 	}).nullable()
 });
 

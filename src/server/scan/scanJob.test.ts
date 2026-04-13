@@ -79,6 +79,10 @@ describe("scanPersistenceResultSchema", () => {
 			findingsCount: 1,
 			insertedFindingsCount: 1,
 			discoveredSubdomains: ["a.example.com", "b.example.com"],
+			subdomainAssetCoverage: [
+				{ subdomain: "a.example.com", scannedAssetPaths: ["assets/main.js"] },
+				{ subdomain: "b.example.com", scannedAssetPaths: ["assets/vendor.js"] }
+			],
 			discoveryStats: {
 				fromLinks: 2,
 				fromSitemap: 1,
@@ -90,6 +94,7 @@ describe("scanPersistenceResultSchema", () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.discoveredSubdomains).toEqual(["a.example.com", "b.example.com"]);
+			expect(result.data.subdomainAssetCoverage[0]?.scannedAssetPaths).toEqual(["assets/main.js"]);
 			expect(result.data.discoveryStats.fromLinks).toBe(2);
 		}
 	});
@@ -101,6 +106,7 @@ describe("scanPersistenceResultSchema", () => {
 			findingsCount: 0,
 			insertedFindingsCount: 0,
 			discoveredSubdomains: [],
+			subdomainAssetCoverage: [],
 			discoveryStats: {
 				fromLinks: 0,
 				fromSitemap: 0,
@@ -119,6 +125,10 @@ describe("scanPersistenceResultSchema", () => {
 			findingsCount: 0,
 			insertedFindingsCount: 0,
 			discoveredSubdomains: Array.from({ length: 20 }, (_, i) => `sub${i}.example.com`),
+			subdomainAssetCoverage: Array.from({ length: 20 }, (_, i) => ({
+				subdomain: `sub${i}.example.com`,
+				scannedAssetPaths: ["assets/main.js"]
+			})),
 			discoveryStats: {
 				fromLinks: 25,
 				fromSitemap: 0,

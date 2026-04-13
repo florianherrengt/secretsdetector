@@ -31,7 +31,8 @@ export const sourceMapProbeSchema = z.object({
 export const checkRunInputSchema = z.object({
 	domain: z.string().url(),
 	scripts: z.array(checkScriptSchema),
-	sourceMaps: z.array(sourceMapProbeSchema).optional().default([])
+	sourceMaps: z.array(sourceMapProbeSchema).optional().default([]),
+	sitemapFound: z.boolean().optional().default(true)
 });
 
 export const checkRunOutputSchema = z.object({

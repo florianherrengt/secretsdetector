@@ -287,7 +287,7 @@ scanRoutes.get(
 				: 0;
 
 			const discoveryMetadata = scanRecord.discoveryMetadata;
-		const viewProps = scanResultPagePropsSchema.parse({
+			const viewProps = scanResultPagePropsSchema.parse({
 				scanId: scanRecord.id,
 				targetUrl: domainRecord.hostname,
 				topNavMode,
@@ -297,6 +297,7 @@ scanRoutes.get(
 				durationMs,
 				checks,
 				discoveredSubdomains: discoveryMetadata?.discoveredSubdomains ?? [],
+				subdomainAssetCoverage: discoveryMetadata?.subdomainAssetCoverage ?? [],
 				discoveryStats: discoveryMetadata?.stats ?? {
 					fromLinks: 0,
 					fromSitemap: 0,

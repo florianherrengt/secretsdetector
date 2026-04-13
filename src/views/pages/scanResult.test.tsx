@@ -45,6 +45,7 @@ const baseProps: ScanResultPageProps = {
 		}
 	],
 	discoveredSubdomains: [],
+	subdomainAssetCoverage: [],
 	discoveryStats: {
 		fromLinks: 0,
 		fromSitemap: 0,
@@ -229,6 +230,16 @@ describe("ScanResultPage discovery rendering", () => {
 	it("renders discovered subdomains list when present", () => {
 		const html = renderPage({
 			discoveredSubdomains: ["api.example.com", "cdn.example.com"],
+			subdomainAssetCoverage: [
+				{
+					subdomain: "api.example.com",
+					scannedAssetPaths: ["assets/index-bc075382.js"]
+				},
+				{
+					subdomain: "cdn.example.com",
+					scannedAssetPaths: ["assets/vendor-abc123.js", "assets/chunk-xyz987.js"]
+				}
+			],
 			discoveryStats: {
 				fromLinks: 2,
 				fromSitemap: 0,
@@ -241,12 +252,15 @@ describe("ScanResultPage discovery rendering", () => {
 		expect(html).toContain("Discovered Subdomains");
 		expect(html).toContain("api.example.com");
 		expect(html).toContain("cdn.example.com");
+		expect(html).toContain("assets/index-bc075382.js");
+		expect(html).toContain("assets/vendor-abc123.js");
 		expect(html).toContain("2 links, 0 sitemap");
 	});
 
 	it("renders empty-state message when no subdomains discovered", () => {
 		const html = renderPage({
 			discoveredSubdomains: [],
+			subdomainAssetCoverage: [],
 			discoveryStats: {
 				fromLinks: 0,
 				fromSitemap: 0,
@@ -264,6 +278,12 @@ describe("ScanResultPage discovery rendering", () => {
 	it("renders truncated indicator when discovery was truncated", () => {
 		const html = renderPage({
 			discoveredSubdomains: ["a.example.com"],
+			subdomainAssetCoverage: [
+				{
+					subdomain: "a.example.com",
+					scannedAssetPaths: ["assets/main.js"]
+				}
+			],
 			discoveryStats: {
 				fromLinks: 5,
 				fromSitemap: 3,
@@ -280,6 +300,12 @@ describe("ScanResultPage discovery rendering", () => {
 		const longSub = "a".repeat(100) + ".example.com";
 		const html = renderPage({
 			discoveredSubdomains: [longSub],
+			subdomainAssetCoverage: [
+				{
+					subdomain: longSub,
+					scannedAssetPaths: ["assets/entry.js"]
+				}
+			],
 			discoveryStats: {
 				fromLinks: 1,
 				fromSitemap: 0,
@@ -291,5 +317,27 @@ describe("ScanResultPage discovery rendering", () => {
 
 		expect(html).toContain(longSub);
 		expect(html).toContain("break-words");
+	});
+
+	it("renders per-subdomain empty asset state", () => {
+		const html = renderPage({
+			discoveredSubdomains: ["api.example.com"],
+			subdomainAssetCoverage: [
+				{
+					subdomain: "api.example.com",
+					scannedAssetPaths: []
+				}
+			],
+			discoveryStats: {
+				fromLinks: 1,
+				fromSitemap: 0,
+				totalConsidered: 1,
+				totalAccepted: 1,
+				truncated: false
+			}
+		});
+
+		expect(html).toContain("api.example.com");
+		expect(html).toContain("No assets scanned on this subdomain");
 	});
 });

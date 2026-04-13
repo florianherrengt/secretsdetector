@@ -193,7 +193,13 @@ export const scanPersistenceResultSchema = z.object({
 		totalConsidered: z.number().int().nonnegative(),
 		totalAccepted: z.number().int().nonnegative(),
 		truncated: z.boolean()
-	})
+	}),
+	subdomainAssetCoverage: z.array(
+		z.object({
+			subdomain: z.string(),
+			scannedAssetPaths: z.array(z.string())
+		})
+	)
 });
 
 export type ScanPersistenceResult = z.infer<typeof scanPersistenceResultSchema>;
@@ -242,7 +248,8 @@ export const persistScanOutcome = z
 				finishedAt,
 				discoveryMetadata: {
 					discoveredSubdomains: pipelineResult.discoveredSubdomains,
-					stats: pipelineResult.discoveryStats
+					stats: pipelineResult.discoveryStats,
+					subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage
 				}
 			})
 			.where(eq(scans.id, scanId));
@@ -253,7 +260,8 @@ export const persistScanOutcome = z
 			findingsCount: dedupedFindings.length,
 			insertedFindingsCount: newFindings.length,
 			discoveredSubdomains: pipelineResult.discoveredSubdomains,
-			discoveryStats: pipelineResult.discoveryStats
+			discoveryStats: pipelineResult.discoveryStats,
+			subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage
 		});
 	});
 

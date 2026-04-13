@@ -76,6 +76,11 @@ describe("scanDomain discovery contract", () => {
 		expect(result.discoveryStats.totalAccepted).toBe(3);
 		expect(result.discoveryStats.totalConsidered).toBe(4);
 		expect(result.discoveryStats.truncated).toBe(false);
+		expect(result.subdomainAssetCoverage).toEqual([
+			{ subdomain: "a.example.com", scannedAssetPaths: [] },
+			{ subdomain: "m.example.com", scannedAssetPaths: [] },
+			{ subdomain: "z.example.com", scannedAssetPaths: [] }
+		]);
 	});
 
 	it("truncates discoveredSubdomains deterministically at cap", async () => {
@@ -109,6 +114,7 @@ describe("scanDomain discovery contract", () => {
 		expect(result.discoveredSubdomains[0]).toBe("sub00.example.com");
 		expect(result.discoveredSubdomains[19]).toBe("sub19.example.com");
 		expect(result.discoveryStats.truncated).toBe(true);
+		expect(result.subdomainAssetCoverage).toHaveLength(20);
 	});
 
 	it("rejects main-page redirects that leave the base host", async () => {
@@ -132,6 +138,7 @@ describe("scanDomain discovery contract", () => {
 		expect(result.status).toBe("failed");
 		expect(result.discoveredSubdomains).toEqual([]);
 		expect(result.discoveryStats.totalAccepted).toBe(0);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("accepts main-page redirects to subdomains of the base host", async () => {
@@ -162,6 +169,10 @@ describe("scanDomain discovery contract", () => {
 
 		expect(result.status).toBe("success");
 		expect(result.discoveredSubdomains).toContain("app.example.com");
+		expect(result.subdomainAssetCoverage).toEqual([
+			{ subdomain: "app.example.com", scannedAssetPaths: [] },
+			{ subdomain: "www.example.com", scannedAssetPaths: [] }
+		]);
 	});
 
 	it("returns success when homepage fetch succeeds but has no script tags", async () => {
@@ -178,8 +189,10 @@ describe("scanDomain discovery contract", () => {
 		const result = await scanDomain({ domain: "example.com" });
 
 		expect(result.status).toBe("success");
-		expect(result.findings).toEqual([]);
+		expect(result.findings).toHaveLength(1);
+		expect(result.findings[0]?.checkId).toBe("missing-sitemap");
 		expect(result.discoveryStats.truncated).toBe(false);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("returns success when homepage fetch succeeds with non-html content", async () => {
@@ -196,8 +209,10 @@ describe("scanDomain discovery contract", () => {
 		const result = await scanDomain({ domain: "example.com" });
 
 		expect(result.status).toBe("success");
-		expect(result.findings).toEqual([]);
+		expect(result.findings).toHaveLength(1);
+		expect(result.findings[0]?.checkId).toBe("missing-sitemap");
 		expect(result.discoveryStats.truncated).toBe(false);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("rejects discovered target redirects that leave the selected host", async () => {
@@ -240,5 +255,52 @@ describe("scanDomain discovery contract", () => {
 		expect(result.discoveredSubdomains).toEqual(["a.example.com"]);
 		expect(result.discoveryStats.fromLinks).toBe(1);
 		expect(result.discoveryStats.totalAccepted).toBe(1);
+		expect(result.subdomainAssetCoverage).toEqual([
+			{ subdomain: "a.example.com", scannedAssetPaths: [] }
+		]);
+	});
+
+	it("maps scanned scripts to matching discovered subdomain asset paths", async () => {
+		const mockFetch = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+
+			if (url === "https://example.com/") {
+				return makeResponse(
+					url,
+					200,
+					`<html><body><a href="https://app.example.com/">App</a><script src="/main.js"></script></body></html>`,
+					"text/html"
+				);
+			}
+
+			if (url === "https://example.com/main.js") {
+				return makeResponse(url, 200, "console.log('ok');", "application/javascript");
+			}
+
+			if (url === "https://app.example.com/") {
+				return makeResponse(
+					url,
+					200,
+					`<html><body><script src="/assets/index-bc075382.js?v=1"></script></body></html>`,
+					"text/html"
+				);
+			}
+
+			if (url === "https://app.example.com/assets/index-bc075382.js?v=1") {
+				return makeResponse(url, 200, "console.log('subdomain');", "application/javascript");
+			}
+
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com" });
+
+		expect(result.status).toBe("success");
+		expect(result.discoveredSubdomains).toEqual(["app.example.com"]);
+		expect(result.subdomainAssetCoverage).toEqual([
+			{ subdomain: "app.example.com", scannedAssetPaths: ["assets/index-bc075382.js"] }
+		]);
 	});
 });

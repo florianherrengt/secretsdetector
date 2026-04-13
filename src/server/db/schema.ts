@@ -32,6 +32,10 @@ export const scans = pgTable("scans", {
 			totalAccepted: number;
 			truncated: boolean;
 		};
+		subdomainAssetCoverage: {
+			subdomain: string;
+			scannedAssetPaths: string[];
+		}[];
 	}>()
 });
 

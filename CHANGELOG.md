@@ -687,3 +687,19 @@ Navigation now behaves consistently with authentication state across result and 
 
 **Outcome:**
 Scans now surface and retain cross-subdomain coverage as first-class product evidence, giving users clearer attack-surface visibility and more reliable end-to-end scan behavior.
+
+---
+
+## v0.37 — Scan Evidence Transparency + Sitemap Signal
+
+**Expanded scan results into a richer proof-of-work surface by showing exactly which subdomain assets were scanned and by flagging missing sitemap hygiene.**
+
+- Added per-subdomain asset coverage evidence to scan outputs and persistence so each discovered host now carries an explicit list of scanned asset paths
+- Upgraded the scan result experience to present subdomains with nested scanned-asset details, making scan breadth easier to verify and communicate to users
+- Introduced a dedicated missing-sitemap security check and integrated it into the built-in check registry and severity/classification model
+- Extended check-run contracts to propagate sitemap availability as deterministic execution context for check logic
+- Aligned persistence, routing, dedupe flow, and schema contracts so scan evidence remains consistent across all scan surfaces
+- Strengthened contract, route, pipeline, and page coverage to lock deterministic behavior for new evidence and sitemap-driven findings
+
+**Outcome:**
+Users and operators now get a clearer, trust-building record of scanner coverage per subdomain while also receiving direct visibility into sitemap configuration gaps that affect discoverability and attack-surface hygiene.

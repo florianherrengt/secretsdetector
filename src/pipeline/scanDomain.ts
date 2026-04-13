@@ -37,7 +37,13 @@ export const ScanDomainOutput = z.object({
 	checks: z.array(checkResultSchema),
 	findings: z.array(scanFindingWithCheckIdSchema),
 	discoveredSubdomains: z.array(z.string()),
-	discoveryStats: discoveryStatsSchema
+	discoveryStats: discoveryStatsSchema,
+	subdomainAssetCoverage: z.array(
+		z.object({
+			subdomain: z.string(),
+			scannedAssetPaths: z.array(z.string())
+		})
+	)
 });
 
 export type ScanDomainInput = z.infer<typeof ScanDomainInput>;
@@ -687,8 +693,65 @@ const toFailedResult = z
 			checks: [],
 			findings: [],
 			discoveredSubdomains: empty.subdomains,
-			discoveryStats: empty.stats
+			discoveryStats: empty.stats,
+			subdomainAssetCoverage: []
 		};
+	});
+
+export const buildSubdomainAssetCoverage = z
+	.function()
+	.args(
+		z.array(z.string()),
+		z.array(
+			z.object({
+				file: z.string()
+			})
+		)
+	)
+	.returns(
+		z.array(
+			z.object({
+				subdomain: z.string(),
+				scannedAssetPaths: z.array(z.string())
+			})
+		)
+	)
+	.implement((discoveredSubdomains, scripts) => {
+		const assetPathsByHost = new Map<string, Set<string>>();
+
+		for (const script of scripts) {
+			let parsed; // eslint-disable-line custom/no-mutable-variables
+
+			try {
+				parsed = new URL(script.file);
+			} catch {
+				continue;
+			}
+
+			const host = parsed.hostname.toLowerCase();
+			const rawPath = parsed.pathname.length > 0 ? parsed.pathname : "/";
+			const normalizedPath = rawPath.startsWith("/") ? rawPath.slice(1) : rawPath;
+			const displayPath = normalizedPath.length > 0 ? normalizedPath : "/";
+
+			const current = assetPathsByHost.get(host) ?? new Set<string>();
+			current.add(displayPath);
+			assetPathsByHost.set(host, current);
+		}
+
+		const sortedSubdomains = [...new Set(discoveredSubdomains.map((subdomain) => subdomain.toLowerCase()))].sort(
+			(a, b) => a.localeCompare(b)
+		);
+
+		return sortedSubdomains.map((subdomain) => {
+			const scannedAssetPaths = [...(assetPathsByHost.get(subdomain) ?? new Set<string>())].sort((a, b) =>
+				a.localeCompare(b)
+			);
+
+			return {
+				subdomain,
+				scannedAssetPaths
+			};
+		});
 	});
 
 export const runChecks = z
@@ -697,15 +760,21 @@ export const runChecks = z
 		z.string().url(),
 		z.array(checkScriptSchema),
 		z.array(z.custom<ScanCheck>()),
-		z.array(sourceMapProbeSchema).optional()
+		z.array(sourceMapProbeSchema).optional(),
+		z.boolean().optional()
 	)
 	.returns(z.array(checkResultSchema))
-	.implement((domain, scripts, checks, sourceMaps) => {
+	.implement((domain, scripts, checks, sourceMaps, sitemapFound) => {
 		const results: z.infer<typeof checkResultSchema>[] = [];
 
 		for (const check of checks) {
 			try {
-				const checkResult = check.run({ domain, scripts, sourceMaps: sourceMaps ?? [] });
+				const checkResult = check.run({
+					domain,
+					scripts,
+					sourceMaps: sourceMaps ?? [],
+					sitemapFound: sitemapFound ?? true
+				});
 
 				results.push({
 					id: check.id,
@@ -897,11 +966,28 @@ export const scanDomain = z
 			sourceMapProbes.push(probe);
 		}
 
+		const sitemapUrl = new URL("/sitemap.xml", targetUrl);
+		const sitemapResponse = await fetchTextResource(
+			sitemapUrl.toString(),
+			HOMEPAGE_TIMEOUT_MS,
+			HOMEPAGE_MAX_BYTES,
+			undefined,
+			semaphore,
+			baseHost
+		);
+		const sitemapFound = sitemapResponse !== null;
+
 		const checks = runChecks(
 			targetUrl,
 			finalScripts.map(({ file, content }) => ({ file, content })),
 			builtinChecks,
-			sourceMapProbes
+			sourceMapProbes,
+			sitemapFound
+		);
+
+		const subdomainAssetCoverage = buildSubdomainAssetCoverage(
+			discovery.subdomains,
+			finalScripts.map((script) => ({ file: script.file }))
 		);
 
 		const findings = checks.flatMap((checkResult) => {
@@ -924,6 +1010,7 @@ export const scanDomain = z
 			discoveryStats: {
 				...discovery.stats,
 				truncated
-			}
+			},
+			subdomainAssetCoverage
 		};
 	});

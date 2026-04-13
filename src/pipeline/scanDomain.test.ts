@@ -93,6 +93,7 @@ describe("scanDomain demo website", () => {
 
 		expect(result.status).toBe("success");
 		expect(result.findings.length).toBeGreaterThanOrEqual(builtinChecks.length);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 
 		for (const check of builtinChecks) {
 			expect(countFindingsForCheck({ checks: result.checks, checkId: check.id })).toBeGreaterThan(0);
@@ -114,6 +115,7 @@ describe("scanDomain demo website", () => {
 
 		expect(result.status).toBe("failed");
 		expect(result.findings).toHaveLength(0);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("skips discovery for localhost and returns empty discovery fields", async () => {
@@ -126,6 +128,7 @@ describe("scanDomain demo website", () => {
 		expect(result.discoveryStats.totalConsidered).toBe(0);
 		expect(result.discoveryStats.totalAccepted).toBe(0);
 		expect(result.discoveryStats.truncated).toBe(false);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("returns empty discovery fields on failure", async () => {
@@ -138,6 +141,7 @@ describe("scanDomain demo website", () => {
 		expect(result.discoveryStats.totalConsidered).toBe(0);
 		expect(result.discoveryStats.totalAccepted).toBe(0);
 		expect(result.discoveryStats.truncated).toBe(false);
+		expect(result.subdomainAssetCoverage).toEqual([]);
 	});
 
 	it("continues running other checks if one check throws", () => {
@@ -188,7 +192,7 @@ describe("scanDomain demo website", () => {
 			}
 		];
 
-		const result = runChecks("https://example.com/", [], checks, []);
+		const result = runChecks("https://example.com/", [], checks, [], true);
 
 		expect(result).toHaveLength(2);
 		expect(result[0]?.id).toBe("throwing-check");

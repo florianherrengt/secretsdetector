@@ -40,10 +40,14 @@ describe("GET /scan/:scanId discovery metadata rendering", () => {
 								status: "success",
 								startedAt: new Date("2026-01-01T00:00:00.000Z"),
 								finishedAt: new Date("2026-01-01T00:00:05.000Z"),
-								discoveryMetadata: {
-									discoveredSubdomains: ["a.example.com", "b.example.com"],
-									stats: {
-										fromLinks: 2,
+							discoveryMetadata: {
+								discoveredSubdomains: ["a.example.com", "b.example.com"],
+								subdomainAssetCoverage: [
+									{ subdomain: "a.example.com", scannedAssetPaths: ["assets/index-bc075382.js"] },
+									{ subdomain: "b.example.com", scannedAssetPaths: ["assets/vendor.js"] }
+								],
+								stats: {
+									fromLinks: 2,
 										fromSitemap: 1,
 										totalConsidered: 5,
 										totalAccepted: 2,
@@ -81,6 +85,7 @@ describe("GET /scan/:scanId discovery metadata rendering", () => {
 		expect(html).toContain("Discovered Subdomains");
 		expect(html).toContain("a.example.com");
 		expect(html).toContain("b.example.com");
+		expect(html).toContain("assets/index-bc075382.js");
 		expect(html).toContain("2 links, 1 sitemap");
 	});
 
@@ -144,9 +149,13 @@ describe("GET /scan/:scanId discovery metadata rendering", () => {
 								status: "success",
 								startedAt: new Date("2026-01-01T00:00:00.000Z"),
 								finishedAt: new Date("2026-01-01T00:00:05.000Z"),
-								discoveryMetadata: {
-									discoveredSubdomains: Array.from({ length: 20 }, (_, i) => `sub${i}.example.com`),
-									stats: {
+							discoveryMetadata: {
+								discoveredSubdomains: Array.from({ length: 20 }, (_, i) => `sub${i}.example.com`),
+								subdomainAssetCoverage: Array.from({ length: 20 }, (_, i) => ({
+									subdomain: `sub${i}.example.com`,
+									scannedAssetPaths: ["assets/main.js"]
+								})),
+								stats: {
 										fromLinks: 25,
 										fromSitemap: 2,
 										totalConsidered: 30,

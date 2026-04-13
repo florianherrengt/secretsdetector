@@ -39,6 +39,10 @@ describeIfDb("persistScanOutcome DB integration", () => {
 				checks: [],
 				findings: [],
 				discoveredSubdomains: ["a.example.com", "b.example.com"],
+				subdomainAssetCoverage: [
+					{ subdomain: "a.example.com", scannedAssetPaths: ["assets/a.js"] },
+					{ subdomain: "b.example.com", scannedAssetPaths: ["assets/b.js"] }
+				],
 				discoveryStats: {
 					fromLinks: 2,
 					fromSitemap: 1,
@@ -61,7 +65,11 @@ describeIfDb("persistScanOutcome DB integration", () => {
 				totalConsidered: 9,
 				totalAccepted: 2,
 				truncated: false
-			}
+			},
+			subdomainAssetCoverage: [
+				{ subdomain: "a.example.com", scannedAssetPaths: ["assets/a.js"] },
+				{ subdomain: "b.example.com", scannedAssetPaths: ["assets/b.js"] }
+			]
 		});
 	});
 });

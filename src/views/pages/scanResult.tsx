@@ -49,6 +49,12 @@ export const scanResultPagePropsSchema = z.object({
 	durationMs: z.number().int().nonnegative(),
 	checks: z.array(scanResultCheckSchema),
 	discoveredSubdomains: z.array(z.string()),
+	subdomainAssetCoverage: z.array(
+		z.object({
+			subdomain: z.string(),
+			scannedAssetPaths: z.array(z.string())
+		})
+	),
 	discoveryStats: z.object({
 		fromLinks: z.number().int().nonnegative(),
 		fromSitemap: z.number().int().nonnegative(),
@@ -570,15 +576,26 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 									<p class="text-sm font-medium text-foreground">Subdomains Scanned</p>
 									<p class="text-xs text-muted-foreground">Discovered Subdomains included in this scan run.</p>
 								</div>
-								{props.discoveredSubdomains.length > 0 ? (
-									<ul class="space-y-1">
-										{props.discoveredSubdomains.map((sub) => (
-											<li key={sub} class="font-mono text-xs text-muted-foreground break-words">
-												{sub}
-											</li>
-										))}
-									</ul>
-								) : (
+							{props.discoveredSubdomains.length > 0 ? (
+								<ul class="space-y-2">
+									{props.subdomainAssetCoverage.map((entry) => (
+										<li key={entry.subdomain} class="rounded-md border border-border bg-muted p-2">
+											<p class="font-mono text-xs text-foreground break-words">{entry.subdomain}</p>
+											{entry.scannedAssetPaths.length > 0 ? (
+												<ul class="mt-2 space-y-1">
+													{entry.scannedAssetPaths.map((assetPath) => (
+														<li key={`${entry.subdomain}:${assetPath}`} class="font-mono text-xs text-muted-foreground break-words">
+															{assetPath}
+														</li>
+													))}
+												</ul>
+											) : (
+												<p class="mt-1 text-xs text-muted-foreground">No assets scanned on this subdomain</p>
+											)}
+										</li>
+									))}
+								</ul>
+							) : (
 									<div class="space-y-1">
 										<p class="text-sm text-muted-foreground">No subdomains discovered</p>
 										<p class="text-xs text-muted-foreground">

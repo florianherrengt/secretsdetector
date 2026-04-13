@@ -4,7 +4,8 @@ export const checkClassificationById = {
 	"credential-url": "Credential URL Exposure",
 	"generic-secret": "Generic Secret Exposure",
 	"localstorage-jwt": "Token Storage Exposure",
-	"public-source-map": "Source Map Exposure"
+	"public-source-map": "Source Map Exposure",
+	"missing-sitemap": "Site Configuration"
 } as const;
 
 export const classificationFallback = "General Security";
@@ -24,7 +25,8 @@ export const defaultSeverityLevelByCheckId = {
 	"credential-url": "High",
 	"generic-secret": "Medium",
 	"localstorage-jwt": "Medium",
-	"public-source-map": "Medium"
+	"public-source-map": "Medium",
+	"missing-sitemap": "Low"
 } as const;
 
 export const severityScoreByLevel = {
