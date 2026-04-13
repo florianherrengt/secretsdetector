@@ -641,3 +641,18 @@ Admin operational surfaces are now isolated from user-session auth and require e
 
 **Outcome:**
 Users now land in a clearer scan-first experience, can jump directly into their domain workspace, and receive predictable feedback when navigating to invalid routes.
+
+---
+
+## v0.34 — Static CSS Build Pipeline
+
+**Moved UI styling from runtime Tailwind compilation to a deterministic build-time stylesheet pipeline.**
+
+- Replaced CDN/browser-side Tailwind compilation with a Tailwind CLI build step that generates a single static stylesheet for app pages
+- Updated app shell and homepage rendering to load built CSS via standard stylesheet links, removing dependency on client-side style compilation timing
+- Added static asset serving for `/assets/*` so generated UI styles are delivered consistently in local and production-like environments
+- Expanded design-system enforcement to correctly support head-level stylesheet links and eliminate false-positive lint failures on valid layout markup
+- Added screenshot-focused validation guidance and ignore rules to keep visual QA reproducible without polluting repository history
+
+**Outcome:**
+The product now has stable, reproducible styling across environments, with a clearer frontend delivery path that is easier to validate, lint, and ship reliably.

@@ -5,3 +5,9 @@ test-results/
 .env
 .env.*
 !.env.example
+screenshots/
+assets/app.css
+.DS_Store
+**/.DS_Store
+.ds_store
+**/.ds_store

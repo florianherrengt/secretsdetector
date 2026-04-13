@@ -1,6 +1,26 @@
 import { ESLintUtils } from "@typescript-eslint/utils";
 import { getPolicy, isFrontendFile } from "./utils/design-system.js";
 
+const isWithinHeadElement = (node) => {
+  let current = node.parent;
+
+  while (current) {
+    if (current.type === "JSXElement") {
+      const opening = current.openingElement;
+      if (
+        opening.name.type === "JSXIdentifier" &&
+        opening.name.name === "head"
+      ) {
+        return true;
+      }
+    }
+
+    current = current.parent;
+  }
+
+  return false;
+};
+
 export default ESLintUtils.RuleCreator(() => "")({
   name: "ds-no-raw-html-elements",
   meta: {
@@ -33,6 +53,10 @@ export default ESLintUtils.RuleCreator(() => "")({
         const isRawHtml = tag === tag.toLowerCase();
 
         if (!isRawHtml) {
+          return;
+        }
+
+        if (tag === "link" && isWithinHeadElement(node)) {
           return;
         }
 

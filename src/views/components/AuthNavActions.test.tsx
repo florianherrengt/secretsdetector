@@ -10,15 +10,15 @@ describe("AuthNavActions contracts", () => {
 		expect(html).toContain("href=\"/auth/sign-in\"");
 		expect(html).toContain("Sign up");
 		expect(html).toContain("href=\"/auth/sign-up\"");
-		expect(html).not.toContain("Dashboard");
-		expect(html).not.toContain("href=\"/domains\"");
+		expect(html).not.toContain("Settings");
+		expect(html).not.toContain("href=\"/settings\"");
 	});
 
-	it("renders dashboard when mode is app", () => {
+	it("renders settings when mode is app", () => {
 		const html = render(AuthNavActions, { mode: "app" }) as string;
 
-		expect(html).toContain("Dashboard");
-		expect(html).toContain("href=\"/domains\"");
+		expect(html).toContain("Settings");
+		expect(html).toContain("href=\"/settings\"");
 		expect(html).not.toContain("Sign in");
 		expect(html).not.toContain("Sign up");
 		expect(html).not.toContain("href=\"/auth/sign-in\"");

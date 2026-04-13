@@ -16,7 +16,7 @@ export const SettingsPage: FC<SettingsPageProps> = z
 	.returns(z.custom<ReturnType<FC<SettingsPageProps>>>())
 	.implement(({ email }) => {
 		return (
-			<Layout title="Settings">
+			<Layout title="Settings" topNavMode="app">
 				<div class="space-y-6">
 					<h1 class="text-xl font-semibold text-foreground">Settings</h1>
 					<Section title="Account">

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { serveStatic } from "@hono/node-server/serve-static";
 import healthzRoutes from "./healthz/index.js";
 import authRoutes from "./auth/index.js";
 import homeRoutes from "./home/index.js";
@@ -13,6 +14,8 @@ import domainRoutes from "./domains/index.js";
 import settingsRoutes from "./settings/index.js";
 
 const app = new Hono();
+
+app.use("/assets/*", serveStatic({ root: "./" }));
 
 app.route("/", healthzRoutes);
 app.route("/", authRoutes);

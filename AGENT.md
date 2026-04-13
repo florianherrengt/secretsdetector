@@ -141,6 +141,19 @@ export function render<T>(
 
 - Use `brave_*` for search
 - Use `cloudflare_get_url_markdown` for page retrieval
+- For open-source repository questions, prefer `zread` as the default research and answer path.
+- Analyze screenshots with `image_analysis`
+
+### Screenshot Validation Flow
+
+When validating UI with Playwright screenshots, always run this sequence:
+
+1. Start the app server first (do not take screenshots against a stopped/stale server)
+2. Capture screenshots into `./screenshots`
+3. Inspect each screenshot with `image_analysis`
+4. If styling/layout is broken, fix it and retake the screenshot with the server running
+
+Do not mark UI work complete until the latest screenshot passes visual inspection.
 
 ---
 

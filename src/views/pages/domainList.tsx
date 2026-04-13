@@ -46,15 +46,11 @@ export const DomainListPage: FC<DomainListPageProps> = z
 		};
 
 		return (
-			<Layout title="Your Domains" topNavMode="app">
+			<Layout title="Domains" topNavMode="app">
 				<div class="space-y-6">
-					<h1 class="text-xl font-semibold text-foreground">Your Domains</h1>
 					<Section title="Add Domain">
 						<ScanCard>
-							<form action="/domains" method="post" class="space-y-3">
-								<label for="domain" class="block text-sm font-medium text-foreground">
-									Domain
-								</label>
+							<form action="/domains" method="post" class="flex flex-col gap-3 sm:flex-row sm:items-center">
 								<input
 									id="domain"
 									name="domain"
@@ -65,9 +61,10 @@ export const DomainListPage: FC<DomainListPageProps> = z
 								/>
 								<button
 									type="submit"
-									class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+									class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:shrink-0"
 								>
-									Add Domain
+									<span aria-hidden="true">+</span>
+									Add
 								</button>
 							</form>
 						</ScanCard>

@@ -55,15 +55,16 @@ test.describe("home page", () => {
 
     await expect(page).toHaveTitle("Secret Detector");
     await expect(page.getByRole("button", { name: "Scan now" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
   });
 
-  test("shows Dashboard button when logged in", async ({ authedPage }) => {
+  test("shows Settings button when logged in", async ({ authedPage }) => {
     const page = authedPage;
 
     await page.goto("/");
 
-    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   });
 
   test("manual scan submits domain and reaches scan result", async ({

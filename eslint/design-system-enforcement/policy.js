@@ -19,6 +19,7 @@ export const designSystemPolicy = {
     "head",
     "meta",
     "title",
+    "link",
     "script",
     "style",
     "body",
@@ -211,10 +212,7 @@ export const designSystemPolicy = {
     "w-6",
     "z-50",
   ]),
-  forbiddenClassPatterns: [
-    /^(bg|text|border)-[a-z]+-[0-9]{2,3}$/,
-    /^!/, 
-  ],
+  forbiddenClassPatterns: [/^(bg|text|border)-[a-z]+-[0-9]{2,3}$/, /^!/],
   approvedStyleProps: [],
   forbiddenProps: new Set(["style", "dangerouslySetInnerHTML"]),
   suppressionRules: {
@@ -237,6 +235,10 @@ export const designSystemPolicy = {
       "src/views/components/StatusBadge.tsx": ["classes"],
       "src/views/components/icons.tsx": ["classString"],
     },
-    allowedExpressionKinds: ["Literal", "TemplateLiteral", "ConditionalExpression"],
+    allowedExpressionKinds: [
+      "Literal",
+      "TemplateLiteral",
+      "ConditionalExpression",
+    ],
   },
 };

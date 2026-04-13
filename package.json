@@ -3,8 +3,9 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"dev": "tsx watch src/server/app.ts",
-		"build": "tsc && node scripts/copy-sandbox-demo-assets.mjs",
+		"dev": "npm run build:css && tsx watch src/server/app.ts",
+		"build": "npm run build:css && tsc && node scripts/copy-sandbox-demo-assets.mjs",
+		"build:css": "tailwindcss -i ./src/views/styles/app.css -o ./assets/app.css --minify",
 		"start": "node dist/server/app.js",
 		"prepare": "node scripts/install-hooks.mjs",
 		"typecheck": "tsc --noEmit",
@@ -32,9 +33,11 @@
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@playwright/test": "^1.59.1",
+		"@tailwindcss/cli": "^4.2.2",
 		"@types/node": "^22.13.9",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^10.2.0",
+		"tailwindcss": "^4.2.2",
 		"tsx": "^4.19.3",
 		"typescript": "^5.8.2",
 		"typescript-eslint": "^8.58.1",
