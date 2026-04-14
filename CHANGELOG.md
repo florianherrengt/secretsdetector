@@ -721,3 +721,20 @@ Users and operators now get a clearer, trust-building record of scanner coverage
 
 **Outcome:**
 Public scan entry is now safer to expose at scale, and scans produce more reliable token/sitemap findings on modern redirected and minified frontend deployments.
+
+---
+
+## v0.1.1 — Production Docker & CI Pipeline
+
+**Added containerization and automated multi-arch image publishing**
+
+- Production Dockerfile: multi-stage build on Node 25.9.0 (pinned digest), non-root runtime user, exec-form entrypoint, HEALTHCHECK on /healthz
+- .dockerignore excluding dev-only files from build context
+- GitHub Actions workflow (docker-publish.yml): builds linux/amd64 + linux/arm64 on merge to master, pushes latest + sha tags to Docker Hub, runs smoke test and manifest verification
+- Updated CI workflow to Node 25
+- Added @types/pg to devDependencies (was resolved from parent node_modules, invisible in clean Docker builds)
+- Added .nvmrc for local Node version consistency
+- Added scripts/docker-smoke-test.sh for local container contract validation
+
+**Outcome:**
+Every merge to master or main produces a verified, multi-arch production image on Docker Hub with automated runtime and security checks.

@@ -1,0 +1,168 @@
+name: Docker Publish
+
+on:
+  push:
+    branches: ["master", "main"]
+
+concurrency:
+  group: docker-publish-master
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPO: docker.io/florianherrengt/secretsdetector
+  PLATFORMS: linux/amd64,linux/arm64
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check Dockerfile
+        run: docker buildx build --check .
+
+  build_and_push:
+    needs: precheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: florianherrengt
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPO }}:latest
+            ${{ env.IMAGE_REPO }}:sha-${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_REPO }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_REPO }}:buildcache,mode=max
+
+  smoke_test:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: florianherrengt
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull and run smoke test
+        run: |
+          IMAGE="${{ env.IMAGE_REPO }}:sha-${{ github.sha }}"
+          docker pull "${IMAGE}"
+
+          CONTAINER_ID=$(docker run -d \
+            -e PORT=3000 \
+            -e DATABASE_URL="postgresql://test:test@localhost:5432/test" \
+            -e REDIS_URL="redis://localhost:6379" \
+            "${IMAGE}")
+
+          echo "Waiting for HTTP server..."
+          for i in $(seq 1 30); do
+            HTTP_CODE=$(docker exec "${CONTAINER_ID}" wget -qO /dev/null -S http://localhost:3000/healthz 2>&1 | grep -oE 'HTTP/[0-9.]+ [0-9]+' | tail -1 | grep -oE '[0-9]{3}' || true)
+            if [ -n "${HTTP_CODE}" ]; then
+              echo "HTTP server responding after ${i}s (status: ${HTTP_CODE})"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: HTTP server did not respond within 30s"
+              docker logs "${CONTAINER_ID}" 2>&1 || true
+              docker rm -f "${CONTAINER_ID}" >/dev/null 2>&1 || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "Verifying runtime user is non-root..."
+          RUNTIME_USER=$(docker exec "${CONTAINER_ID}" whoami)
+          if [ "${RUNTIME_USER}" = "root" ]; then
+            echo "ERROR: Container running as root"
+            docker rm -f "${CONTAINER_ID}" >/dev/null 2>&1 || true
+            exit 1
+          fi
+          echo "Runtime user: ${RUNTIME_USER} (OK)"
+
+          docker rm -f "${CONTAINER_ID}" >/dev/null 2>&1 || true
+          echo "Smoke test passed."
+
+  verify_manifest:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: florianherrengt
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify manifest platforms and tag consistency
+        run: |
+          IMAGE="${{ env.IMAGE_REPO }}:latest"
+          SHA_TAG="${{ env.IMAGE_REPO }}:sha-${{ github.sha }}"
+
+          echo "Inspecting manifest for ${IMAGE}..."
+          MANIFEST=$(docker buildx imagetools inspect "${IMAGE}" --raw)
+
+          AMD64_COUNT=$(echo "${MANIFEST}" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          manifests = data.get('manifests', [])
+          count = sum(1 for m in manifests if m.get('platform', {}).get('architecture') == 'amd64' and m.get('platform', {}).get('os') == 'linux')
+          print(count)
+          ")
+          if [ "${AMD64_COUNT}" -eq 0 ]; then
+            echo "ERROR: linux/amd64 not found in manifest"
+            exit 1
+          fi
+          echo "linux/amd64: found (${AMD64_COUNT} variant(s))"
+
+          ARM64_COUNT=$(echo "${MANIFEST}" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          manifests = data.get('manifests', [])
+          count = sum(1 for m in manifests if m.get('platform', {}).get('architecture') == 'arm64' and m.get('platform', {}).get('os') == 'linux')
+          print(count)
+          ")
+          if [ "${ARM64_COUNT}" -eq 0 ]; then
+            echo "ERROR: linux/arm64 not found in manifest"
+            exit 1
+          fi
+          echo "linux/arm64: found (${ARM64_COUNT} variant(s))"
+
+          echo "Verifying sha tag matches latest..."
+          SHA_DIGEST=$(docker buildx imagetools inspect "${SHA_TAG}" --format '{{.Manifest.Digest}}')
+          LATEST_DIGEST=$(docker buildx imagetools inspect "${IMAGE}" --format '{{.Manifest.Digest}}')
+
+          if [ "${SHA_DIGEST}" != "${LATEST_DIGEST}" ]; then
+            echo "ERROR: latest and sha tags point to different manifests"
+            echo "  latest: ${LATEST_DIGEST}"
+            echo "  sha:    ${SHA_DIGEST}"
+            exit 1
+          fi
+
+          echo "All manifest checks passed."
+          echo "  Platforms: linux/amd64, linux/arm64"
+          echo "  Digest: ${LATEST_DIGEST}"
