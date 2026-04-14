@@ -738,3 +738,17 @@ Public scan entry is now safer to expose at scale, and scans produce more reliab
 
 **Outcome:**
 Every merge to master or main produces a verified, multi-arch production image on Docker Hub with automated runtime and security checks.
+
+---
+
+## v0.1.2 — CI Test Reliability
+
+**Fixed all CI test failures caused by missing infrastructure services and module resolution issues.**
+
+- Excluded /healthz from rate limiter middleware so health checks pass without Redis
+- Added PostgreSQL 18 and Redis 7 service containers to CI workflow with health checks
+- Converted @opencode-ai/plugin import to type-only + dynamic import to prevent ERR_MODULE_NOT_FOUND in test environment
+- Added DATABASE_URL and REDIS_URL environment variables to CI job
+
+**Outcome:**
+CI pipeline now passes all 243 tests reliably with proper service dependencies.

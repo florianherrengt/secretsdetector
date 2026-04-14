@@ -1,5 +1,5 @@
 // .opencode/plugins/improvement-loop.ts
-import { type Plugin, tool } from "@opencode-ai/plugin";
+import type Plugin from "@opencode-ai/plugin";
 
 type Proposal = {
   title: string;
@@ -672,6 +672,8 @@ export function createImprovementLoopEngine() {
 }
 
 export default (async ({ client }) => {
+  const { tool } = await import("@opencode-ai/plugin");
+
   await client.app.log({
     body: {
       service: "improvement-loop",

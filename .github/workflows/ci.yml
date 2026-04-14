@@ -4,9 +4,38 @@ on:
   push:
   pull_request:
 
-jobs:
+  jobs:
   ci:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: secret_detector
+          POSTGRES_USER: secret_detector
+          POSTGRES_PASSWORD: secret_detector
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U secret_detector -d secret_detector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://secret_detector:secret_detector@localhost:5432/secret_detector
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - name: Checkout

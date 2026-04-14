@@ -34,6 +34,8 @@ const endpointRateLimiter = new RateLimiterRedis({
 	duration: endpointRateLimitWindowSeconds
 });
 
+app.route("/", healthzRoutes);
+
 app.use("/assets/*", serveStatic({ root: "./" }));
 app.use(
 	"*",
@@ -42,6 +44,11 @@ app.use(
 		.args(z.custom<Context>(), z.custom<() => Promise<void>>())
 		.returns(z.custom<Promise<Response | void>>())
 		.implement(async (c, next) => {
+			if (c.req.path === "/healthz") {
+				await next();
+				return;
+			}
+
 			const clientIp = getClientIp(c);
 			const sessionId = extractSessionId(c);
 			const session = sessionId ? await getSession(sessionId) : null;
@@ -56,8 +63,6 @@ app.use(
 			await next();
 		})
 );
-
-app.route("/", healthzRoutes);
 app.route("/", authRoutes);
 app.route("/", homeRoutes);
 app.route("/sandbox/demo", sandboxDemoRoutes);
