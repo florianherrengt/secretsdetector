@@ -703,3 +703,21 @@ Scans now surface and retain cross-subdomain coverage as first-class product evi
 
 **Outcome:**
 Users and operators now get a clearer, trust-building record of scanner coverage per subdomain while also receiving direct visibility into sitemap configuration gaps that affect discoverability and attack-surface hygiene.
+
+---
+
+## v0.38 — Public Scan Guardrails + Deep Bundle Coverage
+
+**Hardened public scan intake against abuse while expanding detection reliability across redirected paths and large production bundles.**
+
+- Added layered public-scan protection with endpoint-level throttling plus scan-level limits keyed by IP/user and browser fingerprint, reducing anonymous abuse without blocking signed-in workflows
+- Required browser fingerprint submission for public scan requests and wired deterministic client-side fingerprint collection into the homepage scan form
+- Added an operator reset utility for scan/endpoint rate-limit keys to speed up local recovery and test/debug loops
+- Tightened requested-path trust boundaries: scans and qualification now fail when redirects escape an explicitly requested subpath
+- Updated script and sitemap resolution to follow final homepage URLs and in-path sitemap candidates, improving scan correctness for nested-route targets
+- Expanded JavaScript evidence capture to merge head and tail range fetches, enabling detection when secrets appear near the end of large bundles
+- Hardened localStorage token detection for minified/member-expression patterns while suppressing non-token keys, improving precision on real-world frontend bundles
+- Extended demo fixtures and regression coverage to lock these guardrails and deep-bundle detection behaviors across route, pipeline, and end-to-end contracts
+
+**Outcome:**
+Public scan entry is now safer to expose at scale, and scans produce more reliable token/sitemap findings on modern redirected and minified frontend deployments.

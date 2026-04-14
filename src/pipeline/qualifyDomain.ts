@@ -186,8 +186,8 @@ const fetchHomepage = z
 		z.promise(
 			z.discriminatedUnion("kind", [
 				z.object({ kind: z.literal("fetch_failed") }),
-				z.object({ kind: z.literal("not_html") }),
-				z.object({ kind: z.literal("ok"), body: z.string() })
+				z.object({ kind: z.literal("not_html"), finalUrl: z.string().url() }),
+				z.object({ kind: z.literal("ok"), finalUrl: z.string().url(), body: z.string() })
 			])
 		)
 	)
@@ -209,7 +209,7 @@ const fetchHomepage = z
 		const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
 
 		if (!contentType.includes("text/html")) {
-			return { kind: "not_html" };
+			return { kind: "not_html", finalUrl: response.url };
 		}
 
 		const body = await readResponseTextWithLimit(response, HOMEPAGE_MAX_BYTES);
@@ -220,8 +220,41 @@ const fetchHomepage = z
 
 		return {
 			kind: "ok",
+			finalUrl: response.url,
 			body
 		};
+	});
+
+const normalizeComparablePath = z
+	.function()
+	.args(z.string())
+	.returns(z.string())
+	.implement((path) => {
+		if (path === "/") {
+			return "/";
+		}
+
+		return path.replace(/\/+$/, "");
+	});
+
+const isFinalUrlWithinRequestedPath = z
+	.function()
+	.args(z.string().url(), z.string().url())
+	.returns(z.boolean())
+	.implement((requestedUrl, finalUrl) => {
+		const requestedPath = normalizeComparablePath(new URL(requestedUrl).pathname);
+
+		if (requestedPath === "/") {
+			return true;
+		}
+
+		const finalPath = normalizeComparablePath(new URL(finalUrl).pathname);
+
+		if (finalPath === requestedPath) {
+			return true;
+		}
+
+		return finalPath.startsWith(`${requestedPath}/`);
 	});
 
 const isParkingLikePage = z
@@ -253,6 +286,13 @@ export const qualifyDomain = z
 			return {
 				isQualified: false,
 				reasons: ["Failed: could not fetch homepage"]
+			};
+		}
+
+		if (!isFinalUrlWithinRequestedPath(targetUrl, homepage.finalUrl)) {
+			return {
+				isQualified: false,
+				reasons: ["Failed: redirected outside requested path"]
 			};
 		}
 

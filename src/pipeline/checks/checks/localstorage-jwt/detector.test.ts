@@ -229,6 +229,33 @@ describe("findLocalStorageJwtDetections", () => {
 		expect(detections).toHaveLength(1);
 	});
 
+	it("detects minified member-expression key for token storage", () => {
+		const detections = findLocalStorageJwtDetections(
+			"localStorage.setItem(Jo.token,l.renewToken)}}),localStorage.setItem(Jo.token,i.signIn),localStorage.setItem(Jo.token,s.signUpWithWebflow)"
+		);
+		expect(detections).toHaveLength(3);
+	});
+
+	it("ignores non-token member-expression key like selectedOrganisationId", () => {
+		const detections = findLocalStorageJwtDetections(
+			"localStorage.setItem(Jo.selectedOrganisationId,u)}})"
+		);
+		expect(detections).toHaveLength(0);
+	});
+
+	it("detects nocodelytics-style minified token write and ignores selectedOrganisationId", () => {
+		const body =
+			"{width:1e3,height:1e3,ref:e}))},nX=({from:e})=>m.createElement(ji,{to:{pathname:qe.signIn,state:{from:e}}}),da=({children:e,...t})=>{var o,s;const[n,r]=Rke({onCompleted:async l=>{localStorage.setItem(Jo.token,l.renewToken)}}),a=pp({onCompleted:l=>{var d,f;if(!((d=l.me)!=null&&d.user.id))return;r.called||n();const u=(f=Sr.first(l.me.organisations))==null?void 0:f.id;u&&localStorage.setItem(Jo.selectedOrganisationId,u)}}),i=(s=(o=a.data)==null?void 0:o.me)==null?void 0:s.user;return m.createElement(Mo,{...t,render:({location:l})=>{var u;if(a.error)return(u=a.error)!=null&&u.graphQLErrors.some(({extensions:d})=";
+
+		const detections = findLocalStorageJwtDetections(body);
+		expect(detections).toHaveLength(1);
+		expect(detections[0]?.value).toContain("key=jotoken");
+		expect(detections[0]?.value).toContain("sink=localStorage.setItem");
+		expect(body.slice(detections[0]?.start, detections[0]?.end)).toContain(
+			"localStorage.setItem(Jo.token,l.renewToken)"
+		);
+	});
+
 	it("sets start and end to full match span", () => {
 		const body = 'localStorage.setItem("token", token);';
 		const detections = findLocalStorageJwtDetections(body);

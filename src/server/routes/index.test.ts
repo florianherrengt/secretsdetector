@@ -22,6 +22,8 @@ describe("GET /", () => {
 		const html = await res.text();
 		expect(html).toContain("action=\"/scan\" method=\"post\"");
 		expect(html).toContain("name=\"domain\"");
+		expect(html).toContain("name=\"visitorFingerprint\"");
+		expect(html).toContain("/assets/scan-fingerprint.js");
 	});
 
 	it("renders demo scan target directly in initial html", async () => {
@@ -188,6 +190,22 @@ describe("POST /qualify", () => {
 	});
 });
 
+describe("POST /scan", () => {
+	it("rejects public scans without a fingerprint", async () => {
+		const res = await app.request("/scan", {
+			method: "POST",
+			headers: {
+				"content-type": "application/x-www-form-urlencoded"
+			},
+			body: "domain=example.com"
+		});
+
+		expect(res.status).toBe(400);
+		const html = await res.text();
+		expect(html).toContain("Fingerprint Required");
+	});
+});
+
 describe("GET /sandbox/demo", () => {
 	it("returns demo website page", async () => {
 		const res = await app.request("/sandbox/demo");
@@ -199,6 +217,17 @@ describe("GET /sandbox/demo", () => {
 	});
 });
 
+describe("GET /sandbox/demo/large", () => {
+	it("returns large bundle demo website page", async () => {
+		const res = await app.request("/sandbox/demo/large");
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("text/html");
+		const html = await res.text();
+		expect(html).toContain("Secret Detector Demo Website");
+		expect(html).toContain('<script src="/sandbox/demo/assets/main.large.js"></script>');
+	});
+});
+
 describe("GET /sandbox/demo/assets/main.js", () => {
 	it("returns fixture javascript content", async () => {
 		const res = await app.request("/sandbox/demo/assets/main.js");
@@ -206,6 +235,17 @@ describe("GET /sandbox/demo/assets/main.js", () => {
 		expect(res.headers.get("content-type")).toContain("application/javascript");
 		const js = await res.text();
 		expect(js).toContain("https://admin:password@internal.api.com");
+	});
+});
+
+describe("GET /sandbox/demo/assets/main.large.js", () => {
+	it("returns large bundle javascript content", async () => {
+		const res = await app.request("/sandbox/demo/assets/main.large.js");
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("application/javascript");
+		const js = await res.text();
+		expect(js).toContain("localStorage.setItem(Jo.token,l.renewToken)");
+		expect(js).toContain("localStorage.setItem(Jo.selectedOrganisationId,u)");
 	});
 });
 

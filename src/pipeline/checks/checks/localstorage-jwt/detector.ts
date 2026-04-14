@@ -15,6 +15,8 @@ const TOKEN_KEYS: readonly string[] = [
 
 const tokenKeySet = new Set(TOKEN_KEYS);
 
+const identifierCaptureRegex = /[a-zA-Z_$][a-zA-Z0-9_$]*/g;
+
 const normalizeKey = z
 	.function()
 	.args(z.string())
@@ -81,6 +83,30 @@ const isJwtLiteral = z
 		return true;
 	});
 
+const extractIdentifierCandidates = z
+	.function()
+	.args(z.string())
+	.returns(z.array(z.string()))
+	.implement((rawExpression) => {
+		const matches = rawExpression.match(identifierCaptureRegex) ?? [];
+
+		return matches
+			.map((candidate) => normalizeKey(candidate))
+			.filter((candidate) => candidate.length > 0);
+	});
+
+const isTokenLikeCandidate = z
+	.function()
+	.args(z.string())
+	.returns(z.boolean())
+	.implement((candidate) => {
+		return (
+			tokenKeySet.has(candidate) ||
+			candidate.includes("token") ||
+			candidate.includes("jwt")
+		);
+	});
+
 const matchesRule = z
 	.function()
 	.args(z.string(), z.string(), z.boolean())
@@ -88,7 +114,13 @@ const matchesRule = z
 	.implement((rawKey, rawValueText, valueIsLiteral) => {
 		const normalizedKey = normalizeKey(rawKey);
 
-		if (tokenKeySet.has(normalizedKey)) {
+		if (isTokenLikeCandidate(normalizedKey)) {
+			return true;
+		}
+
+		const keyCandidates = extractIdentifierCandidates(rawKey);
+
+		if (keyCandidates.some((candidate) => isTokenLikeCandidate(candidate))) {
 			return true;
 		}
 
@@ -97,9 +129,9 @@ const matchesRule = z
 		}
 
 		if (!valueIsLiteral) {
-			const normalizedValue = normalizeKey(rawValueText);
+			const valueCandidates = extractIdentifierCandidates(rawValueText);
 
-			if (tokenKeySet.has(normalizedValue)) {
+			if (valueCandidates.some((candidate) => isTokenLikeCandidate(candidate))) {
 				return true;
 			}
 		}
@@ -126,7 +158,8 @@ const getValueType = z
 const quotedTokenPattern = `"[^"]*"|'[^']*'`;
 const templateTokenPattern = "`[^`]*`";
 const identifierPattern = "[a-zA-Z_$][a-zA-Z0-9_$]*";
-const tokenPattern = `(?:${quotedTokenPattern}|${templateTokenPattern}|${identifierPattern})`;
+const memberExpressionPattern = `${identifierPattern}(?:\\s*(?:\\.\\s*${identifierPattern}|\\[\\s*(?:${quotedTokenPattern}|${identifierPattern})\\s*\\]))*`;
+const tokenPattern = `(?:${quotedTokenPattern}|${templateTokenPattern}|${memberExpressionPattern})`;
 
 const setItemRegex = new RegExp(
 	`(?:(?:window|globalThis)\\s*\\.\\s*)?localStorage\\s*\\.\\s*setItem\\s*\\(\\s*(${tokenPattern})\\s*,\\s*(${tokenPattern})\\s*\\)`,

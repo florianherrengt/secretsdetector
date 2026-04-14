@@ -105,6 +105,28 @@ testApp.get("/scenarios/tiny", (c) => {
 	return c.html("<script src='/x.js'></script>");
 });
 
+testApp.get("/scenarios/predictions-drop", (c) => {
+	return c.redirect("/scenarios/pem-key", 302);
+});
+
+testApp.get("/scenarios/predictions/latest", (c) => {
+	return c.html(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Predictions latest fixture</title>
+  <script src="/assets/main.js"></script>
+</head>
+<body>
+  <p>Latest predictions page.</p>
+</body>
+</html>`);
+});
+
+testApp.get("/scenarios/predictions", (c) => {
+	return c.redirect("/scenarios/predictions/latest", 302);
+});
+
 describe("qualifyDomain", () => {
 	let server: TestServer; // eslint-disable-line custom/no-mutable-variables
 
@@ -150,5 +172,19 @@ describe("qualifyDomain", () => {
 
 		expect(result.isQualified).toBe(false);
 		expect(result.reasons).toContain("Failed: could not fetch homepage");
+	});
+
+	it("returns false when redirect drops an explicitly requested path", async () => {
+		const result = await qualifyDomain({ domain: `localhost:${TEST_PORT}/scenarios/predictions-drop` });
+
+		expect(result.isQualified).toBe(false);
+		expect(result.reasons).toContain("Failed: redirected outside requested path");
+	});
+
+	it("returns true when redirect stays within the requested path", async () => {
+		const result = await qualifyDomain({ domain: `localhost:${TEST_PORT}/scenarios/predictions` });
+
+		expect(result.isQualified).toBe(true);
+		expect(result.reasons).toContain("Qualified: HTML contains scripts and passes all checks");
 	});
 });

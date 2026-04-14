@@ -171,8 +171,146 @@ describe("scanDomain discovery contract", () => {
 		expect(result.discoveredSubdomains).toContain("app.example.com");
 		expect(result.subdomainAssetCoverage).toEqual([
 			{ subdomain: "app.example.com", scannedAssetPaths: [] },
-			{ subdomain: "www.example.com", scannedAssetPaths: [] }
+			{ subdomain: "www.example.com", scannedAssetPaths: ["main.js"] }
 		]);
+	});
+
+	it("rejects main-page redirects that drop an explicitly requested path", async () => {
+		const mockFetch = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+			if (url === "https://example.com/predictions/") {
+				return makeResponse(
+					"https://example.com/",
+					200,
+					"<html><body><script src='/main.js'></script></body></html>",
+					"text/html"
+				);
+			}
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com/predictions/" });
+
+		expect(result.status).toBe("failed");
+		expect(result.discoveredSubdomains).toEqual([]);
+		expect(result.subdomainAssetCoverage).toEqual([]);
+	});
+
+	it("resolves scripts against the final redirected homepage URL", async () => {
+		const mockFetch = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+
+			if (url === "https://example.com/predictions/") {
+				return makeResponse(
+					"https://example.com/predictions/latest/",
+					200,
+					"<html><body><script src='assets/main.js'></script></body></html>",
+					"text/html"
+				);
+			}
+
+			if (url === "https://example.com/predictions/latest/assets/main.js") {
+				return makeResponse(url, 200, "console.log('ok');", "application/javascript");
+			}
+
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com/predictions/" });
+
+		expect(result.status).toBe("success");
+		expect(mockFetch).toHaveBeenCalledWith(
+			"https://example.com/predictions/latest/assets/main.js",
+			expect.any(Object)
+		);
+		expect(mockFetch).not.toHaveBeenCalledWith(
+			"https://example.com/predictions/assets/main.js",
+			expect.any(Object)
+		);
+	});
+
+	it("checks sitemap.xml inside an explicitly requested path first", async () => {
+		const mockFetch = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+
+			if (url === "https://example.com/predictions/") {
+				return makeResponse(
+					url,
+					200,
+					"<html><body><script src='/predictions/main.js'></script></body></html>",
+					"text/html"
+				);
+			}
+
+			if (url === "https://example.com/predictions/main.js") {
+				return makeResponse(url, 200, "console.log('ok');", "application/javascript");
+			}
+
+			if (url === "https://example.com/predictions/sitemap.xml") {
+				return makeResponse(url, 200, "<urlset></urlset>", "application/xml");
+			}
+
+			if (url === "https://example.com/sitemap.xml") {
+				return makeResponse(url, 404, "", "text/plain");
+			}
+
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com/predictions/" });
+
+		expect(result.status).toBe("success");
+		const missingSitemapCheck = result.checks.find((check) => check.id === "missing-sitemap");
+		expect(missingSitemapCheck).toBeDefined();
+		expect(missingSitemapCheck?.findings).toHaveLength(0);
+		expect(mockFetch).toHaveBeenCalledWith(
+			"https://example.com/predictions/sitemap.xml",
+			expect.any(Object)
+		);
+	});
+
+	it("reports missing sitemap against the requested path", async () => {
+		const mockFetch = vi.fn(async (input: string | URL) => {
+			const url = String(input);
+
+			if (url === "https://example.com/predictions/") {
+				return makeResponse(
+					url,
+					200,
+					"<html><body><script src='/predictions/main.js'></script></body></html>",
+					"text/html"
+				);
+			}
+
+			if (url === "https://example.com/predictions/main.js") {
+				return makeResponse(url, 200, "console.log('ok');", "application/javascript");
+			}
+
+			if (url === "https://example.com/predictions/sitemap.xml") {
+				return makeResponse(url, 404, "", "text/plain");
+			}
+
+			if (url === "https://example.com/sitemap.xml") {
+				return makeResponse(url, 404, "", "text/plain");
+			}
+
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com/predictions/" });
+
+		expect(result.status).toBe("success");
+		const missingSitemapFinding = result.findings.find((finding) => finding.checkId === "missing-sitemap");
+		expect(missingSitemapFinding).toBeDefined();
+		expect(missingSitemapFinding?.file).toBe("https://example.com/predictions/sitemap.xml");
 	});
 
 	it("returns success when homepage fetch succeeds but has no script tags", async () => {
@@ -302,5 +440,92 @@ describe("scanDomain discovery contract", () => {
 		expect(result.subdomainAssetCoverage).toEqual([
 			{ subdomain: "app.example.com", scannedAssetPaths: ["assets/index-bc075382.js"] }
 		]);
+	});
+
+	it("detects localStorage token writes when only present near end of a large bundle", async () => {
+		const largePrefix = "x".repeat(120_000);
+		const tokenNearEnd =
+			"localStorage.setItem(Jo.token,l.renewToken),localStorage.setItem(Jo.selectedOrganisationId,u)";
+		const largeScript = `${largePrefix}${tokenNearEnd}`;
+
+		const makeScriptRangeResponse = (url: string, body: string, rangeHeader: string | undefined): Response => {
+			if (!rangeHeader) {
+				return makeResponse(url, 200, body, "application/javascript");
+			}
+
+			if (rangeHeader.startsWith("bytes=0-")) {
+				const end = Number(rangeHeader.slice("bytes=0-".length));
+				const sliced = body.slice(0, end + 1);
+				const headers = new Headers({
+					"content-type": "application/javascript",
+					"content-range": `bytes 0-${Math.max(0, sliced.length - 1)}/${body.length}`
+				});
+				return {
+					ok: true,
+					status: 206,
+					url,
+					headers,
+					body: undefined,
+					text: async () => sliced
+				} as unknown as Response;
+			}
+
+			if (rangeHeader.startsWith("bytes=-")) {
+				const requestedLength = Number(rangeHeader.slice("bytes=-".length));
+				const start = Math.max(0, body.length - requestedLength);
+				const sliced = body.slice(start);
+				const headers = new Headers({
+					"content-type": "application/javascript",
+					"content-range": `bytes ${start}-${Math.max(start, body.length - 1)}/${body.length}`
+				});
+				return {
+					ok: true,
+					status: 206,
+					url,
+					headers,
+					body: undefined,
+					text: async () => sliced
+				} as unknown as Response;
+			}
+
+			return makeResponse(url, 416, "", "text/plain");
+		};
+
+		const mockFetch = vi.fn(async (input: string | URL, init?: RequestInit) => {
+			const url = String(input);
+
+			if (url === "https://example.com/") {
+				return makeResponse(
+					url,
+					200,
+					`<html><body><script src="/main.js"></script></body></html>`,
+					"text/html"
+				);
+			}
+
+			if (url === "https://example.com/main.js") {
+				const rangeHeader =
+					typeof init?.headers === "object" && init.headers !== null && "Range" in init.headers
+						? (init.headers as Record<string, string>).Range
+						: undefined;
+
+				return makeScriptRangeResponse(url, largeScript, rangeHeader);
+			}
+
+			if (url === "https://example.com/sitemap.xml") {
+				return makeResponse(url, 404, "", "text/plain");
+			}
+
+			return makeResponse(url, 404, "", "text/plain");
+		});
+
+		vi.stubGlobal("fetch", mockFetch);
+
+		const result = await scanDomain({ domain: "example.com" });
+
+		expect(result.status).toBe("success");
+		const localStorageJwtCheck = result.checks.find((check) => check.id === "localstorage-jwt");
+		expect(localStorageJwtCheck).toBeDefined();
+		expect(localStorageJwtCheck!.findings.length).toBeGreaterThan(0);
 	});
 });

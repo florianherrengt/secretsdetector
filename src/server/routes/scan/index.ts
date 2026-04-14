@@ -20,16 +20,24 @@ import {
 import { ioredisClient } from "../../scan/redis.js";
 import { extractSessionId } from "../../auth/middleware.js";
 import { getSession } from "../../auth/index.js";
+import { getClientIp } from "../../http/clientIp.js";
 
 const scanRoutes = new Hono();
 
-const scanWindowSeconds = Math.round(Number(process.env.SCAN_RATE_LIMIT_WINDOW_MS ?? "60000") / 1000);
-const scanMaxRequestsPerWindow = Number(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS ?? "10");
+const scanWindowSeconds = Math.round(Number(process.env.SCAN_RATE_LIMIT_WINDOW_MS ?? "3600000") / 1000);
+const scanMaxRequestsPerWindow = Number(process.env.SCAN_RATE_LIMIT_MAX_REQUESTS ?? "5");
 const scanMaxConcurrentRequests = Number(process.env.SCAN_MAX_CONCURRENT_REQUESTS ?? "20");
 
-const scanRateLimiter = new RateLimiterRedis({
+const scanIpRateLimiter = new RateLimiterRedis({
 	storeClient: ioredisClient,
-	keyPrefix: "scan_rl",
+	keyPrefix: "scan_ip_rl",
+	points: scanMaxRequestsPerWindow,
+	duration: scanWindowSeconds
+});
+
+const scanFingerprintRateLimiter = new RateLimiterRedis({
+	storeClient: ioredisClient,
+	keyPrefix: "scan_fingerprint_rl",
 	points: scanMaxRequestsPerWindow,
 	duration: scanWindowSeconds
 });
@@ -86,45 +94,37 @@ const scanCheckViewSchema = z.object({
 });
 
 const scanFormSchema = z.object({
-	domain: z.string().trim().min(1).max(2048)
+	domain: z.string().trim().min(1).max(2048),
+	visitorFingerprint: z
+		.string()
+		.trim()
+		.min(1)
+		.max(256)
+		.optional()
 });
 
 const scanParamsSchema = z.object({
 	scanId: z.string().uuid()
 });
 
-const getClientIp = z
-	.function()
-	.args(z.custom<Context>())
-	.returns(z.string().min(1))
-	.implement((c) => {
-		const cfConnectingIp = c.req.header("cf-connecting-ip");
-
-		if (cfConnectingIp && cfConnectingIp.trim().length > 0) {
-			return cfConnectingIp.trim();
-		}
-
-		const xForwardedFor = c.req.header("x-forwarded-for");
-
-		if (!xForwardedFor) {
-			return "unknown";
-		}
-
-		const firstForwardedIp = xForwardedFor
-			.split(",")
-			.map((segment) => segment.trim())
-			.find((segment) => segment.length > 0);
-
-		return firstForwardedIp ?? "unknown";
-	});
-
 const checkRateLimit = z
 	.function()
-	.args(z.string().min(1))
+	.args(
+		z.object({
+			actorKey: z.string().min(1),
+			isPublicScan: z.boolean(),
+			visitorFingerprint: z.string().min(1).optional()
+		})
+	)
 	.returns(z.promise(z.boolean()))
-	.implement(async (clientIp) => {
+	.implement(async ({ actorKey, isPublicScan, visitorFingerprint }) => {
 		try {
-			await scanRateLimiter.consume(clientIp);
+			await scanIpRateLimiter.consume(actorKey);
+
+			if (isPublicScan && visitorFingerprint) {
+				await scanFingerprintRateLimiter.consume(visitorFingerprint);
+			}
+
 			return true;
 		} catch {
 			return false;
@@ -200,8 +200,35 @@ scanRoutes.post(
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement(async (c) => {
 			const clientIp = getClientIp(c);
+			const sessionId = extractSessionId(c);
+			const session = sessionId ? await getSession(sessionId) : null;
+			const body = await c.req.parseBody();
+			const parsedForm = scanFormSchema.safeParse({
+				domain: typeof body.domain === "string" ? body.domain : "",
+				visitorFingerprint: typeof body.visitorFingerprint === "string" && body.visitorFingerprint.trim().length > 0
+					? body.visitorFingerprint
+					: undefined
+			});
+			const isPublicScan = session === null;
+			const actorKey = session ? `user:${session.userId}` : `ip:${clientIp}`;
 
-			if (!(await checkRateLimit(clientIp))) {
+			if (isPublicScan && (!parsedForm.success || !parsedForm.data.visitorFingerprint)) {
+				return c.html(
+					render(ErrorPage, {
+						title: "Fingerprint Required",
+						message: "Public scans require a browser fingerprint. Please enable JavaScript and retry."
+					}),
+					400
+				);
+			}
+
+			if (
+				!(await checkRateLimit({
+					actorKey,
+					isPublicScan,
+					visitorFingerprint: parsedForm.success ? parsedForm.data.visitorFingerprint : undefined
+				}))
+			) {
 				return c.html("<h1>Too Many Requests</h1><p>Please wait before starting another scan.</p>", 429);
 			}
 
@@ -212,11 +239,6 @@ scanRoutes.post(
 			scanRequestState.inFlightRequests += 1;
 
 			try {
-				const body = await c.req.parseBody();
-				const parsedForm = scanFormSchema.safeParse({
-					domain: typeof body.domain === "string" ? body.domain : ""
-				});
-
 				if (!parsedForm.success) {
 					return c.html(render(ErrorPage, { title: "Bad Request", message: "Invalid domain input." }), 400);
 				}

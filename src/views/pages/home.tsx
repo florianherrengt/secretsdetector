@@ -58,6 +58,12 @@ export const HomePage: FC<HomePageProps> = z
                   class="flex gap-3"
                 >
                   <input
+                    id="visitorFingerprint"
+                    name="visitorFingerprint"
+                    type="hidden"
+                    value=""
+                  />
+                  <input
                     id="domain"
                     name="domain"
                     type="text"
@@ -76,6 +82,7 @@ export const HomePage: FC<HomePageProps> = z
               </div>
             </section>
           </div>
+          <script type="module" src="/assets/scan-fingerprint.js"></script>
         </body>
       </html>
     );

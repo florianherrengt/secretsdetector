@@ -52,7 +52,8 @@ export type ScanDomainOutput = z.infer<typeof ScanDomainOutput>;
 const HOMEPAGE_TIMEOUT_MS = 4_000;
 const SCRIPT_TIMEOUT_MS = 3_000;
 const HOMEPAGE_MAX_BYTES = 200 * 1024;
-const SCRIPT_MAX_BYTES = 50 * 1024;
+const SCRIPT_HEAD_MAX_BYTES = 50 * 1024;
+const SCRIPT_TAIL_MAX_BYTES = 256 * 1024;
 const MAX_SCRIPT_CANDIDATES = 3;
 const SOURCE_MAP_TIMEOUT_MS = 3_000;
 const SOURCE_MAP_MAX_BYTES = 100 * 1024;
@@ -286,6 +287,7 @@ const fetchTextResource = z
 		z.promise(
 			z
 				.object({
+					finalUrl: z.string().url(),
 					contentType: z.string(),
 					body: z.string(),
 					headers: z.record(z.string())
@@ -349,9 +351,87 @@ const fetchTextResource = z
 		});
 
 		return {
+			finalUrl: response.url,
 			contentType,
 			body,
 			headers: responseHeaders
+		};
+	});
+
+const mergeScriptSegments = z
+	.function()
+	.args(z.string(), z.string())
+	.returns(z.string())
+	.implement((headSegment, tailSegment) => {
+		if (tailSegment.length === 0) {
+			return headSegment;
+		}
+
+		if (headSegment === tailSegment) {
+			return headSegment;
+		}
+
+		if (headSegment.includes(tailSegment)) {
+			return headSegment;
+		}
+
+		if (tailSegment.includes(headSegment)) {
+			return tailSegment;
+		}
+
+		return `${headSegment}\n${tailSegment}`;
+	});
+
+const fetchScriptCandidate = z
+	.function()
+	.args(z.string().url(), z.string(), z.custom<Semaphore>())
+	.returns(
+		z.promise(
+			z
+				.object({
+					contentType: z.string(),
+					body: z.string(),
+					headers: z.record(z.string())
+				})
+				.nullable()
+		)
+	)
+	.implement(async (scriptUrl, allowedFinalHost, semaphore) => {
+		const headResponse = await fetchTextResource(
+			scriptUrl,
+			SCRIPT_TIMEOUT_MS,
+			SCRIPT_HEAD_MAX_BYTES,
+			{ Range: `bytes=0-${SCRIPT_HEAD_MAX_BYTES - 1}` },
+			semaphore,
+			allowedFinalHost
+		);
+
+		if (headResponse === null) {
+			return null;
+		}
+
+		if (!isLikelyJavaScript(scriptUrl, headResponse.contentType)) {
+			return null;
+		}
+
+		const tailResponse = await fetchTextResource(
+			scriptUrl,
+			SCRIPT_TIMEOUT_MS,
+			SCRIPT_TAIL_MAX_BYTES,
+			{ Range: `bytes=-${SCRIPT_TAIL_MAX_BYTES}` },
+			semaphore,
+			allowedFinalHost
+		);
+
+		const mergedBody =
+			tailResponse !== null && isLikelyJavaScript(scriptUrl, tailResponse.contentType)
+				? mergeScriptSegments(headResponse.body, tailResponse.body)
+				: headResponse.body;
+
+		return {
+			contentType: headResponse.contentType,
+			body: mergedBody,
+			headers: headResponse.headers
 		};
 	});
 
@@ -427,6 +507,77 @@ const getUrlPath = z
 		} catch {
 			return "";
 		}
+	});
+
+const normalizeComparablePath = z
+	.function()
+	.args(z.string())
+	.returns(z.string())
+	.implement((path) => {
+		if (path === "/") {
+			return "/";
+		}
+
+		return path.replace(/\/+$/, "");
+	});
+
+const isFinalUrlWithinRequestedPath = z
+	.function()
+	.args(z.string().url(), z.string().url())
+	.returns(z.boolean())
+	.implement((requestedUrl, finalUrl) => {
+		const requestedPath = normalizeComparablePath(new URL(requestedUrl).pathname);
+
+		if (requestedPath === "/") {
+			return true;
+		}
+
+		const finalPath = normalizeComparablePath(new URL(finalUrl).pathname);
+
+		if (finalPath === requestedPath) {
+			return true;
+		}
+
+		return finalPath.startsWith(`${requestedPath}/`);
+	});
+
+const toDirectoryUrl = z
+	.function()
+	.args(z.string().url())
+	.returns(z.string().url())
+	.implement((urlValue) => {
+		const parsedUrl = new URL(urlValue);
+		if (!parsedUrl.pathname.endsWith("/")) {
+			parsedUrl.pathname = `${parsedUrl.pathname}/`;
+		}
+		parsedUrl.search = "";
+		parsedUrl.hash = "";
+		return parsedUrl.toString();
+	});
+
+const buildSitemapCandidateUrls = z
+	.function()
+	.args(z.string().url(), z.string().url())
+	.returns(z.array(z.string().url()))
+	.implement((requestedUrl, finalHomepageUrl) => {
+		const candidateUrls = [
+			new URL("sitemap.xml", toDirectoryUrl(requestedUrl)).toString(),
+			new URL("sitemap.xml", toDirectoryUrl(finalHomepageUrl)).toString(),
+			new URL("/sitemap.xml", requestedUrl).toString()
+		];
+
+		const uniqueUrls = new Set<string>();
+		const dedupedUrls: string[] = [];
+
+		for (const candidateUrl of candidateUrls) {
+			if (uniqueUrls.has(candidateUrl)) {
+				continue;
+			}
+			uniqueUrls.add(candidateUrl);
+			dedupedUrls.push(candidateUrl);
+		}
+
+		return dedupedUrls;
 	});
 
 const isLikelyJavaScript = z
@@ -831,6 +982,12 @@ export const scanDomain = z
 			return toFailedResult();
 		}
 
+		if (!isFinalUrlWithinRequestedPath(targetUrl, homepage.finalUrl)) {
+			return toFailedResult();
+		}
+
+		const homepageUrl = homepage.finalUrl;
+
 		const skipDiscovery = shouldSkipDiscovery(baseHost);
 
 		let discovery: DiscoveryOutput; // eslint-disable-line custom/no-mutable-variables
@@ -843,24 +1000,13 @@ export const scanDomain = z
 		const allScripts: { file: string; content: string; headers: Record<string, string> }[] = [];
 		const allSourceMapRefs: SourceMapRef[] = [];
 
-		const mainScriptUrls = extractScriptUrls(homepage.body, targetUrl);
+		const mainScriptUrls = extractScriptUrls(homepage.body, homepageUrl);
 		const mainCandidates = mainScriptUrls.slice(0, MAX_SCRIPT_CANDIDATES);
 
 		for (const scriptUrl of mainCandidates) {
-			const scriptResponse = await fetchTextResource(
-				scriptUrl,
-				SCRIPT_TIMEOUT_MS,
-				SCRIPT_MAX_BYTES,
-				{ Range: `bytes=0-${SCRIPT_MAX_BYTES - 1}` },
-				semaphore,
-				baseHost
-			);
+			const scriptResponse = await fetchScriptCandidate(scriptUrl, baseHost, semaphore);
 
 			if (scriptResponse === null) {
-				continue;
-			}
-
-			if (!isLikelyJavaScript(scriptUrl, scriptResponse.contentType)) {
 				continue;
 			}
 
@@ -898,20 +1044,9 @@ export const scanDomain = z
 			const targetCandidates = targetScriptUrls.slice(0, MAX_SCRIPT_CANDIDATES);
 
 			for (const scriptUrl of targetCandidates) {
-				const scriptResponse = await fetchTextResource(
-					scriptUrl,
-					SCRIPT_TIMEOUT_MS,
-					SCRIPT_MAX_BYTES,
-					{ Range: `bytes=0-${SCRIPT_MAX_BYTES - 1}` },
-					semaphore,
-					targetHost
-				);
+				const scriptResponse = await fetchScriptCandidate(scriptUrl, targetHost, semaphore);
 
 				if (scriptResponse === null) {
-					continue;
-				}
-
-				if (!isLikelyJavaScript(scriptUrl, scriptResponse.contentType)) {
 					continue;
 				}
 
@@ -966,16 +1101,24 @@ export const scanDomain = z
 			sourceMapProbes.push(probe);
 		}
 
-		const sitemapUrl = new URL("/sitemap.xml", targetUrl);
-		const sitemapResponse = await fetchTextResource(
-			sitemapUrl.toString(),
-			HOMEPAGE_TIMEOUT_MS,
-			HOMEPAGE_MAX_BYTES,
-			undefined,
-			semaphore,
-			baseHost
-		);
-		const sitemapFound = sitemapResponse !== null;
+		const sitemapCandidateUrls = buildSitemapCandidateUrls(targetUrl, homepageUrl);
+		let sitemapFound = false; // eslint-disable-line custom/no-mutable-variables
+
+		for (const sitemapCandidateUrl of sitemapCandidateUrls) {
+			const sitemapResponse = await fetchTextResource(
+				sitemapCandidateUrl,
+				HOMEPAGE_TIMEOUT_MS,
+				HOMEPAGE_MAX_BYTES,
+				undefined,
+				semaphore,
+				baseHost
+			);
+
+			if (sitemapResponse !== null) {
+				sitemapFound = true;
+				break;
+			}
+		}
 
 		const checks = runChecks(
 			targetUrl,

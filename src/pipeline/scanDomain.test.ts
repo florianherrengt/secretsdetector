@@ -99,6 +99,22 @@ describe("scanDomain demo website", () => {
 			expect(countFindingsForCheck({ checks: result.checks, checkId: check.id })).toBeGreaterThan(0);
 		}
 
+		const localStorageJwtCheck = result.checks.find(
+			(check) => check.id === "localstorage-jwt"
+		);
+		expect(localStorageJwtCheck).toBeDefined();
+		expect(localStorageJwtCheck!.findings.length).toBeGreaterThan(0);
+		expect(
+			localStorageJwtCheck!.findings.some((finding) =>
+				finding.snippet.includes("localStorage.setItem(Jo.token")
+			)
+		).toBe(true);
+		expect(
+			localStorageJwtCheck!.findings.some((finding) =>
+				finding.snippet.includes("selectedOrganisationId")
+			)
+		).toBe(false);
+
 		const bundleFinding = result.findings.find((finding) => finding.file.includes("/sandbox/demo/assets/main.js"));
 		expect(bundleFinding).toBeDefined();
 		expect(bundleFinding!.snippet).toContain("[REDACTED]");
