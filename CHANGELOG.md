@@ -792,3 +792,16 @@ CI now provisions required runtime services for migration-on-boot behavior, allo
 
 **Outcome:**
 CI test runs no longer fail on missing relations when setup hooks touch persisted tables, bringing hosted runs in line with local pre-commit behavior.
+
+---
+
+## v0.1.6 — Pin Infrastructure Versions
+
+**Pinned PostgreSQL and Redis to specific versions across all environments.**
+
+- Updated `docker-compose.yml`, CI workflow, and Docker publish workflow to use `postgres:17.2-alpine`
+- Updated all environments to use `redis:7.2-alpine`
+- Eliminates version drift between local development, CI, and smoke test environments
+
+**Outcome:**
+All environments now run identical PostgreSQL 17.2 and Redis 7.2 versions, preventing subtle compatibility differences.

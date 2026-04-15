@@ -10,7 +10,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18-alpine
+        image: postgres:17.2-alpine
         env:
           POSTGRES_DB: secret_detector
           POSTGRES_USER: secret_detector
@@ -24,7 +24,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7-alpine
+        image: redis:7.2-alpine
         ports:
           - 6379:6379
         options: >-
