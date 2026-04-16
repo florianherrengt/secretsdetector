@@ -819,3 +819,18 @@ All environments now run identical PostgreSQL 17.2 and Redis 7.2 versions, preve
 
 **Outcome:**
 Email delivery works with any SMTP provider (Resend, Mailgun, SendGrid, etc.) through a single generic interface, with zero-cost mocking for E2E tests.
+
+---
+
+## v0.1.8 — E2E Tests on CI
+
+**Added Playwright E2E tests as a dedicated CI job.**
+
+- New `e2e` job runs after the existing `ci` job passes
+- Installs Playwright Chromium with system dependencies
+- Runs database migrations and builds the app before executing tests
+- Uploads test artifacts (traces, screenshots) on failure with 7-day retention
+- Uses debug email endpoint for magic link authentication tests
+
+**Outcome:**
+E2E tests run automatically on every push and pull request, catching regressions in authentication flows, security, and UI behavior.
