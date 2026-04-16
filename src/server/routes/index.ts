@@ -15,6 +15,7 @@ import adminRoutes from "./admin/index.js";
 import debugRoutes from "./debug/index.js";
 import domainRoutes from "./domains/index.js";
 import settingsRoutes from "./settings/index.js";
+import legalRoutes from "./legal/index.js";
 import { ioredisClient } from "../scan/redis.js";
 import { getClientIp } from "../http/clientIp.js";
 import { extractSessionId } from "../auth/middleware.js";
@@ -67,6 +68,7 @@ app.use(
 );
 app.route("/", authRoutes);
 app.route("/", homeRoutes);
+app.route("/", legalRoutes);
 app.route("/sandbox/demo", sandboxDemoRoutes);
 app.route("/domains", domainRoutes);
 app.route("/settings", settingsRoutes);

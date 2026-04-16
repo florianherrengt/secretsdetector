@@ -81,6 +81,13 @@ export const HomePage: FC<HomePageProps> = z
                 </form>
               </div>
             </section>
+            <footer class="py-6 text-center text-sm text-muted-foreground">
+              <span>© 2026 Secrets Watch</span>
+              <span> · </span>
+              <a href="/terms" class="text-muted-foreground underline">Terms of Service</a>
+              <span> · </span>
+              <a href="/privacy" class="text-muted-foreground underline">Privacy Policy</a>
+            </footer>
           </div>
           <script type="module" src="/assets/scan-fingerprint.js"></script>
         </body>
