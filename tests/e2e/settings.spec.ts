@@ -70,7 +70,7 @@ test.describe("Settings", () => {
 		await authedPage.locator('form[action="/auth/logout"] button[type="submit"]').click();
 		await authedPage.waitForURL("/");
 
-		await expect(authedPage.locator("nav")).toContainText("Sign in");
+		await expect(authedPage.locator("header")).toContainText("Sign in");
 
 		const protectedResponse = await authedPage.request.get("/settings");
 		expect(protectedResponse.status()).toBe(401);

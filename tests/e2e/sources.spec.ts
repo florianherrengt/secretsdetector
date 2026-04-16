@@ -20,7 +20,7 @@ test.describe("Domain Sourcing", () => {
 
 	test("product hunt source form shows max pages input and debug link", async ({ page }) => {
 		await page.goto("/source");
-		const productHuntCard = page.locator("div", { has: page.getByRole("heading", { name: "Product Hunt" }) });
+		const productHuntCard = page.locator("article", { has: page.getByRole("heading", { name: "Product Hunt" }) });
 		await productHuntCard.getByRole("button", { name: "Select" }).click();
 
 		await expect(page.getByLabel("Max pages to fetch (1-20)").first()).toBeVisible();

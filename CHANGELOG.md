@@ -835,3 +835,16 @@ Email delivery works with any SMTP provider (Resend, Mailgun, SendGrid, etc.) th
 
 **Outcome:**
 E2E tests run automatically on every push and pull request with rate limiting disabled, catching regressions in authentication flows, security, and UI behavior.
+
+---
+
+## v0.1.9 — E2E Test Assertion Fixes
+
+**Fixed stale e2e test assertions and locator selectors.**
+
+- Updated domains spec to match current "Saved Domains" heading
+- Fixed settings sign-out flow to use `header` locator instead of `nav`
+- Fixed Product Hunt source test to use `article` locator for strict mode compliance
+
+**Outcome:**
+All e2e tests now pass on CI, reflecting the current UI structure.

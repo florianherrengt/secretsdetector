@@ -10,7 +10,7 @@ test.describe("Domains", () => {
 		expect(response.status()).toBe(200);
 		expect(response.headers()["content-type"]).toContain("text/html");
 		const html = await response.text();
-		expect(html).toContain("Your Domains");
+		expect(html).toContain("Saved Domains");
 		expect(html).toContain("Add Domain");
 	});
 
