@@ -15,18 +15,7 @@ app.get(
 		.args(z.custom<Context>())
 		.returns(z.promise(z.instanceof(Response)))
 		.implement(async (c) => {
-			return c.html(render(AuthRequestPage, { mode: "sign-in" as const }));
-		})
-);
-
-app.get(
-	"/auth/sign-up",
-	z
-		.function()
-		.args(z.custom<Context>())
-		.returns(z.promise(z.instanceof(Response)))
-		.implement(async (c) => {
-			return c.html(render(AuthRequestPage, { mode: "sign-up" as const }));
+			return c.html(render(AuthRequestPage, {}));
 		})
 );
 
@@ -53,10 +42,8 @@ app.post(
         return c.json({ success: true });
       }
 
-      const mode = body?.mode === "sign-up" ? "sign-up" : "sign-in";
       return c.html(
         render(AuthRequestPage, {
-          mode,
           message: "Check your email for a sign-in link."
         })
       );

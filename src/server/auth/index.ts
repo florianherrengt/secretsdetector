@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { users, loginTokens, sessions } from "../db/schema.js";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { users, loginTokens, sessions, userDomains, domains } from "../db/schema.js";
+import { eq, and, gt, isNull, inArray, ne } from "drizzle-orm";
 import { generateToken, hashToken } from "./crypto.js";
 import { getEmailProvider } from "../email/index.js";
 
@@ -14,6 +14,16 @@ export const requestMagicLink = z
   .returns(z.promise(z.void()))
   .implement(async (email) => {
     const normalizedEmail = email.toLowerCase().trim();
+    const [existingUser] = await db.select().from(users).where(eq(users.email, normalizedEmail));
+
+    if (!existingUser) {
+      await db.insert(users).values({
+        id: crypto.randomUUID(),
+        email: normalizedEmail,
+        createdAt: new Date()
+      });
+    }
+
     const rawToken = generateToken();
     const tokenHash = await hashToken(rawToken);
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MINUTES * 60 * 1000);
@@ -31,16 +41,31 @@ export const requestMagicLink = z
     const loginUrl = `${protocol}://${domain}/auth/verify?token=${rawToken}`;
 
     const emailProvider = getEmailProvider();
-    await emailProvider.send({
-      to: normalizedEmail,
-      subject: "Your login link",
-      html: `
+
+    if (existingUser?.isVerified) {
+      await emailProvider.send({
+        to: normalizedEmail,
+        subject: "Your login link",
+        html: `
         <h1>Login to Secret Detector</h1>
         <p>Click the link below to log in:</p>
         <p><a href="${loginUrl}">Login</a></p>
         <p>This link will expire in ${TOKEN_EXPIRY_MINUTES} minutes.</p>
       `
-    });
+      });
+    } else {
+      await emailProvider.send({
+        to: normalizedEmail,
+        subject: "Welcome to Secret Detector",
+        html: `
+        <h1>Welcome to Secret Detector</h1>
+        <p>Click the link below to get started:</p>
+        <p><a href="${loginUrl}">Get started</a></p>
+        <p>This link will expire in ${TOKEN_EXPIRY_MINUTES} minutes.</p>
+        <p>By signing up, you agree to our <a href="${protocol}://${domain}/terms">Terms of Service</a> and <a href="${protocol}://${domain}/privacy">Privacy Policy</a>.</p>
+      `
+      });
+    }
   });
 
 export const verifyMagicLink = z
@@ -77,12 +102,11 @@ export const verifyMagicLink = z
     const [existingUser] = await db.select().from(users).where(eq(users.email, token.email));
 
     if (!existingUser) {
-      const newUserId = crypto.randomUUID();
-      await db.insert(users).values({
-        id: newUserId,
-        email: token.email,
-        createdAt: now
-      });
+      throw new Error("User not found");
+    }
+
+    if (!existingUser.isVerified) {
+      await db.update(users).set({ isVerified: true }).where(eq(users.id, existingUser.id));
     }
 
     const [user] = await db.select().from(users).where(eq(users.email, token.email));
@@ -123,13 +147,39 @@ export const getSession = z
       return null;
     }
 
-    const [user] = await db.select().from(users).where(eq(users.id, session.userId));
+    const [user] = await db.select().from(users).where(and(eq(users.id, session.userId), eq(users.isVerified, true)));
 
     if (!user) {
       return null;
     }
 
     return { userId: user.id, email: user.email };
+  });
+
+export const deleteAccount = z
+  .function()
+  .args(z.string())
+  .returns(z.promise(z.void()))
+  .implement(async (userId) => {
+    await db.transaction(async (tx) => {
+      const userDomainRows = await tx.select({ domain: userDomains.domain }).from(userDomains).where(eq(userDomains.userId, userId));
+      const hostnames = userDomainRows.map((r) => r.domain);
+
+      if (hostnames.length > 0) {
+        const domainRows = await tx.select({ id: domains.id, hostname: domains.hostname }).from(domains).where(inArray(domains.hostname, hostnames));
+
+        const hostnamesWithOtherUsers = await tx.select({ domain: userDomains.domain }).from(userDomains).where(and(inArray(userDomains.domain, hostnames), ne(userDomains.userId, userId)));
+        const preservedHostnames = new Set(hostnamesWithOtherUsers.map((r) => r.domain));
+
+        for (const dr of domainRows) {
+          if (!preservedHostnames.has(dr.hostname)) {
+            await tx.delete(domains).where(eq(domains.id, dr.id));
+          }
+        }
+      }
+
+      await tx.delete(users).where(eq(users.id, userId));
+    });
   });
 
 export const logout = z

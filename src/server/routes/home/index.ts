@@ -67,8 +67,9 @@ homeRoutes.get(
 			const sessionId = extractSessionId(c);
 			const session = sessionId ? await getSession(sessionId) : null;
 			const isLoggedIn = session !== null;
+			const flashMessage = c.get("flash");
 
-			return c.html(render(HomePage, { domain, isLoggedIn }));
+			return c.html(render(HomePage, { domain, isLoggedIn, message: flashMessage }));
 		})
 );
 

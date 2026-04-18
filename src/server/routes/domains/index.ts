@@ -1,14 +1,15 @@
 import { z } from "zod";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { render } from "../../../lib/response.js";
 import { domainListPagePropsSchema, DomainListPage } from "../../../views/pages/domainList.js";
-import { confirmPagePropsSchema, ConfirmPage } from "../../../views/pages/confirm.js";
+import { buildConfirmUrl } from "../confirmQuerySchema.js";
+import { createConfirmHandlers } from "../confirmHandlerFactory.js";
 import { db } from "../../db/client.js";
 import { domains, findings, scans, userDomains } from "../../db/schema.js";
 import { normalizeSubmittedDomain } from "../../scan/scanJob.js";
-import { requireAuth } from "../../auth/middleware.js";
+import { requireAuth, type AuthContext } from "../../auth/middleware.js";
 
 const domainRoutes = new Hono();
 
@@ -22,26 +23,6 @@ const deleteDomainParamsSchema = z.object({
 	domainId: z.string().uuid()
 });
 
-const confirmQuerySchema = z.object({
-	title: z.string().trim().min(1).max(100).default("Confirm Action"),
-	text: z.string().trim().min(1).max(300),
-	next: z
-		.string()
-		.trim()
-		.min(1)
-		.max(2048)
-		.regex(/^\/(?!\/).+$/, "Invalid next endpoint"),
-	back: z
-		.string()
-		.trim()
-		.min(1)
-		.max(2048)
-		.regex(/^\/(?!\/).+$/, "Invalid cancel endpoint")
-		.default("/domains"),
-	confirmLabel: z.string().trim().min(1).max(40).default("Confirm"),
-	cancelLabel: z.string().trim().min(1).max(40).default("Cancel")
-});
-
 domainRoutes.get(
 	"/",
 	z
@@ -49,7 +30,8 @@ domainRoutes.get(
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement(async (c) => {
-			const rows = await db.select().from(userDomains);
+			const user = (c as AuthContext).user!;
+			const rows = await db.select().from(userDomains).where(eq(userDomains.userId, user.userId));
 			const uniqueHostnames = [...new Set(rows.map((row) => row.domain))];
 			const domainRows = uniqueHostnames.length > 0
 				? await db
@@ -95,8 +77,11 @@ domainRoutes.get(
 					.groupBy(findings.scanId)
 				: [];
 			const findingCountByScanId = new Map(findingCountRows.map((row) => [row.scanId, Number(row.count)]));
+			const deleteConfirmHrefs = await Promise.all(
+				rows.map((row) => buildConfirmUrl("delete_domain", user.userId, { domainId: row.id }, "/domains"))
+			);
 			const viewProps = domainListPagePropsSchema.parse({
-				domains: rows.map((row) => ({
+				domains: rows.map((row, i) => ({
 					id: row.id,
 					domain: row.domain,
 					lastCheckResult: (() => {
@@ -114,7 +99,7 @@ domainRoutes.get(
 
 						return (findingCountByScanId.get(scanId) ?? 0) > 0 ? "issues" : "pass";
 					})(),
-					deleteConfirmHref: `/domains/confirm?title=${encodeURIComponent("Delete Domain")}&text=${encodeURIComponent(`Delete ${row.domain}? This action cannot be undone.`)}&next=${encodeURIComponent(`/domains/${row.id}/delete`)}&back=${encodeURIComponent("/domains")}&confirmLabel=${encodeURIComponent("Delete")}&cancelLabel=${encodeURIComponent("Keep Domain")}`
+					deleteConfirmHref: deleteConfirmHrefs[i]
 				}))
 			});
 
@@ -122,30 +107,43 @@ domainRoutes.get(
 		})
 );
 
+const handleDeleteDomain = z
+	.function()
+	.args(z.custom<Context>(), z.custom<{ action: string; context: Record<string, string> }>())
+	.returns(z.promise(z.instanceof(Response)))
+	.implement(async (c, resolved) => {
+		const user = (c as AuthContext).user!;
+		const parsedParams = deleteDomainParamsSchema.safeParse({ domainId: resolved.context.domainId });
+
+		if (!parsedParams.success) {
+			return c.html("<h1>Bad Request</h1><p>Invalid domain id.</p>", 400);
+		}
+
+		await db.delete(userDomains).where(and(eq(userDomains.id, parsedParams.data.domainId), eq(userDomains.userId, user.userId)));
+
+		return c.redirect("/domains", 302);
+	});
+
+const { getConfirmHandler, postConfirmHandler } = createConfirmHandlers("/domains", {
+	delete_domain: handleDeleteDomain
+});
+
 domainRoutes.get(
 	"/confirm",
 	z
 		.function()
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
-		.implement(async (c) => {
-			const parsedQuery = confirmQuerySchema.safeParse(c.req.query());
+		.implement(getConfirmHandler)
+);
 
-			if (!parsedQuery.success) {
-				return c.html("<h1>Bad Request</h1><p>Invalid confirmation request.</p>", 400);
-			}
-
-			const viewProps = confirmPagePropsSchema.parse({
-				title: parsedQuery.data.title,
-				message: parsedQuery.data.text,
-				confirmAction: parsedQuery.data.next,
-				cancelHref: parsedQuery.data.back,
-				confirmLabel: parsedQuery.data.confirmLabel,
-				cancelLabel: parsedQuery.data.cancelLabel
-			});
-
-			return c.html(render(ConfirmPage, viewProps));
-		})
+domainRoutes.post(
+	"/confirm",
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(postConfirmHandler)
 );
 
 domainRoutes.post(
@@ -167,28 +165,10 @@ domainRoutes.post(
 			const normalizedDomain = normalizeSubmittedDomain(parsedForm.data.domain);
 
 			await db.insert(userDomains).values({
+				userId: (c as AuthContext).user!.userId,
 				domain: normalizedDomain,
 				createdAt: new Date()
 			});
-
-			return c.redirect("/domains", 302);
-		})
-);
-
-domainRoutes.post(
-	"/:domainId/delete",
-	z
-		.function()
-		.args(z.custom<Context>())
-		.returns(z.custom<Response | Promise<Response>>())
-		.implement(async (c) => {
-			const parsedParams = deleteDomainParamsSchema.safeParse(c.req.param());
-
-			if (!parsedParams.success) {
-				return c.html("<h1>Bad Request</h1><p>Invalid domain id.</p>", 400);
-			}
-
-			await db.delete(userDomains).where(eq(userDomains.id, parsedParams.data.domainId));
 
 			return c.redirect("/domains", 302);
 		})

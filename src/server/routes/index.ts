@@ -20,6 +20,7 @@ import { ioredisClient } from "../scan/redis.js";
 import { getClientIp } from "../http/clientIp.js";
 import { extractSessionId } from "../auth/middleware.js";
 import { getSession } from "../auth/index.js";
+import { flashMiddleware } from "../../lib/flash.js";
 
 const app = new Hono();
 
@@ -40,6 +41,7 @@ const endpointRateLimiter = new RateLimiterRedis({
 app.route("/", healthzRoutes);
 
 app.use("/assets/*", serveStatic({ root: "./" }));
+app.use("*", flashMiddleware);
 app.use(
 	"*",
 	z

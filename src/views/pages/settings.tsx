@@ -5,7 +5,8 @@ import { ScanCard } from "../components/ScanCard.js";
 import { Layout } from "../layout.js";
 
 export const settingsPagePropsSchema = z.object({
-	email: z.string().min(1)
+	email: z.string().min(1),
+	deleteAccountUrl: z.string().min(1)
 });
 
 export type SettingsPageProps = z.infer<typeof settingsPagePropsSchema>;
@@ -14,7 +15,7 @@ export const SettingsPage: FC<SettingsPageProps> = z
 	.function()
 	.args(settingsPagePropsSchema)
 	.returns(z.custom<ReturnType<FC<SettingsPageProps>>>())
-	.implement(({ email }) => {
+	.implement(({ email, deleteAccountUrl }) => {
 		return (
 			<Layout title="Settings" topNavMode="app">
 				<div class="space-y-6">
@@ -44,6 +45,19 @@ export const SettingsPage: FC<SettingsPageProps> = z
 										Sign out
 									</button>
 								</form>
+							</div>
+						</ScanCard>
+					</Section>
+					<Section title="Danger Zone">
+						<ScanCard>
+							<p class="text-sm text-foreground">Permanently delete your account and all associated data. This action cannot be undone.</p>
+							<div class="mt-4">
+								<a
+									href={deleteAccountUrl}
+									class="rounded-md bg-error px-4 py-2 text-sm font-medium text-error-foreground transition-colors hover:bg-error/90"
+								>
+									Delete account
+								</a>
 							</div>
 						</ScanCard>
 					</Section>

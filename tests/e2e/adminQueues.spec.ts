@@ -1,11 +1,15 @@
+import "dotenv/config";
 import { expect, test } from "@playwright/test";
 
+const adminUsername = process.env.ADMIN_BASIC_AUTH_USERNAME ?? "admin";
+const adminPassword = process.env.ADMIN_BASIC_AUTH_PASSWORD ?? "changeme";
+
 const validAuth = {
-	Authorization: `Basic ${Buffer.from("admin:changeme").toString("base64")}`
+	Authorization: `Basic ${Buffer.from(`${adminUsername}:${adminPassword}`).toString("base64")}`
 };
 
 const wrongAuth = {
-	Authorization: `Basic ${Buffer.from("admin:wrong").toString("base64")}`
+	Authorization: `Basic ${Buffer.from(`${adminUsername}:wrong`).toString("base64")}`
 };
 
 test.describe("Admin Basic Auth", () => {
@@ -66,7 +70,7 @@ test.describe("Admin Basic Auth", () => {
 
 	test("loads /admin/queues page in browser with Basic Auth", async ({ browser }) => {
 		const context = await browser.newContext({
-			httpCredentials: { username: "admin", password: "changeme" }
+			httpCredentials: { username: adminUsername, password: adminPassword }
 		});
 		const page = await context.newPage();
 
