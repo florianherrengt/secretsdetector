@@ -1,8 +1,8 @@
 # CHANGELOG
 
-## v0.1.12 — Localized Scan Result Timestamps
+## v0.1.13 — Semantic Timestamp Elements
 
-Render `<time datetime>` elements with raw ISO values, reformatted client-side by `format-local-dates.js` using browser Intl APIs. Removed server-side `formatTimestampUtc` and orphaned `formatDate` utility.
+Replace raw text timestamps with `<time datetime>` elements on scan result pages. No formatting applied — raw ISO values displayed as-is, giving a semantic hook for future client-side localization. Removed all server-side and client-side date formatting code.
 
 ---
 

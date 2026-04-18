@@ -32,7 +32,6 @@ export const Layout: FC<LayoutProps> = z
 						<AuthNavActions mode={navMode} />
 					</nav>
 					{children}
-					<script src="/assets/format-local-dates.js"></script>
 				</body>
 			</html>
 		);
