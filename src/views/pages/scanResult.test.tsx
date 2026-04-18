@@ -52,7 +52,9 @@ const baseProps: ScanResultPageProps = {
 		totalConsidered: 0,
 		totalAccepted: 0,
 		truncated: false
-	}
+	},
+	timezone: "UTC",
+	locale: "en"
 };
 
 const renderPage = (overrides: Partial<ScanResultPageProps> = {}): string => {

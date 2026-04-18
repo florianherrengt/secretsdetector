@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.1.12 — Localized Scan Result Timestamps
+
+Detect browser timezone and locale via cookies, render scan result dates in the user's local format with UTC offset.
+
+---
+
 ## v0.1.11 — Global Vitest Redis Setup
 
 Added `vitest.setup.ts` to wait for Redis readiness before any test runs, removing per-file workarounds.
