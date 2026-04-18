@@ -92,7 +92,7 @@ const resolvedSeverityRankByLevel = {
 	None: 0
 } as const satisfies Record<DerivedSeverityLevel, number>;
 
-const formatTimestampLocal = z
+	const formatTimestampLocal = z
 	.function()
 	.args(z.string(), z.string(), z.string())
 	.returns(z.string())
@@ -105,7 +105,8 @@ const formatTimestampLocal = z
 				timeZoneName: "shortOffset"
 			});
 			const offsetPart = offsetFormatter.formatToParts(date).find((p) => p.type === "timeZoneName");
-			const offset = offsetPart?.value?.replace(/^GMT/, "") ?? "+0000";
+			const rawOffset = offsetPart?.value?.replace(/^GMT/, "") ?? "";
+			const offset = rawOffset === "" || rawOffset === "+0" || rawOffset === "-0" ? "+00:00" : rawOffset.includes(":") ? rawOffset : rawOffset.replace(/([+-])(\d+)/, (_, sign, hours) => sign + hours.padStart(2, "0") + ":00");
 			return formatted + " (" + offset + ")";
 		} catch {
 			return isoValue;
