@@ -88,35 +88,13 @@ const resolvedSeverityRankByLevel = {
 	None: 0
 } as const satisfies Record<DerivedSeverityLevel, number>;
 
-const formatTimestampUtc = z
-	.function()
-	.args(z.string())
-	.returns(z.string())
-	.implement((isoValue) => {
-		const parsedDate = new Date(isoValue);
-
-		if (Number.isNaN(parsedDate.getTime())) {
-			return isoValue;
-		}
-
-		const year = String(parsedDate.getUTCFullYear()).padStart(4, "0");
-		const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
-		const day = String(parsedDate.getUTCDate()).padStart(2, "0");
-		const hour = String(parsedDate.getUTCHours()).padStart(2, "0");
-		const minute = String(parsedDate.getUTCMinutes()).padStart(2, "0");
-		const second = String(parsedDate.getUTCSeconds()).padStart(2, "0");
-
-		return `${year}-${month}-${day} ${hour}:${minute}:${second} UTC`;
-	});
-
-const LocalizedTime: FC<{ datetime: string }> = z
+const TimestampTime: FC<{ datetime: string }> = z
 	.function()
 	.args(z.custom<{ datetime: string }>())
 	.returns(z.custom<ReturnType<FC<{ datetime: string }>>>())
 	.implement(({ datetime }) => {
-		/* eslint-disable custom/ds-no-raw-html-elements -- ds-exception: UI-103 */
-		return <time datetime={datetime}>{formatTimestampUtc(datetime)}</time>;
-		/* eslint-enable custom/ds-no-raw-html-elements */
+		// eslint-disable-next-line custom/ds-no-raw-html-elements -- ds-exception: UI-103 | <time> for machine-readable dates, formatted client-side
+		return <time datetime={datetime}>{datetime}</time>;
 	});
 
 export const formatDurationMs = z
@@ -417,7 +395,7 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 									</div>
 									<div class="space-y-1">
 										<p class="font-medium text-foreground">Started</p>
-										<p class="font-mono text-xs text-muted-foreground"><LocalizedTime datetime={props.startedAtIso} /></p>
+										<p class="font-mono text-xs text-muted-foreground"><TimestampTime datetime={props.startedAtIso} /></p>
 									</div>
 								</div>
 							</ScanCard>
@@ -470,7 +448,7 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 									</div>
 									<div class="space-y-1">
 										<p class="font-medium text-foreground">Started</p>
-										<p class="font-mono text-xs text-muted-foreground"><LocalizedTime datetime={props.startedAtIso} /></p>
+										<p class="font-mono text-xs text-muted-foreground"><TimestampTime datetime={props.startedAtIso} /></p>
 									</div>
 								</div>
 							</ScanCard>
@@ -550,7 +528,7 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 								</div>
 								<div class="space-y-1">
 									<p class="font-medium text-foreground">Started</p>
-									<p class="font-mono text-xs text-muted-foreground"><LocalizedTime datetime={props.startedAtIso} /></p>
+									<p class="font-mono text-xs text-muted-foreground"><TimestampTime datetime={props.startedAtIso} /></p>
 								</div>
 								<div class="space-y-1">
 									<p class="font-medium text-foreground">Duration</p>
@@ -659,7 +637,7 @@ export const ScanResultPage: FC<ScanResultPageProps> = z
 																<div class="flex items-center justify-between gap-3">
 																	<p class="text-sm font-medium text-foreground">Finding #{findingIndex + 1}</p>
 																	{finding.detectedAt ? (
-																		<p class="font-mono text-xs text-muted-foreground"><LocalizedTime datetime={finding.detectedAt} /></p>
+																		<p class="font-mono text-xs text-muted-foreground"><TimestampTime datetime={finding.detectedAt} /></p>
 																	) : null}
 																</div>
 																<p class="text-sm text-foreground">{finding.title}</p>
