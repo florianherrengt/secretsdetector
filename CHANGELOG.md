@@ -2,7 +2,7 @@
 
 ## v0.1.12 — Localized Scan Result Timestamps
 
-Detect browser timezone and locale via cookies, render scan result dates in the user's local format with UTC offset.
+Detect browser timezone and locale via client-side cookies, render scan result dates in the user's local format with UTC offset. Uses a shared `set-locale-cookies.js` asset loaded on all pages.
 
 ---
 

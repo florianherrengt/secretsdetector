@@ -19,6 +19,7 @@ export const TermsOfServicePage: FC<TermsOfServicePageProps> = z
 					<meta name="viewport" content="width=device-width, initial-scale=1" />
 					<title>Terms of Service | Secrets Watch</title>
 					<link rel="stylesheet" href="/assets/app.css" />
+					<script src="/assets/set-locale-cookies.js"></script>
 				</head>
 				<body class="mx-auto max-w-4xl bg-background p-8 font-sans text-foreground">
 					<header class="mb-6 flex items-center justify-between border-b border-border pb-2">

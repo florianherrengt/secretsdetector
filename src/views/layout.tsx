@@ -24,8 +24,8 @@ export const Layout: FC<LayoutProps> = z
 						<meta http-equiv="refresh" content={String(autoRefreshSeconds)} />
 					) : null}
 					<title>{title} | Secret Detector</title>
-						<link rel="stylesheet" href="/assets/app.css" />
-					<script dangerouslySetInnerHTML={{ __html: `document.cookie="tz="+Intl.DateTimeFormat().resolvedOptions().timeZone+";path=/;samesite=lax";document.cookie="locale="+(navigator.language||"en")+";path=/;samesite=lax"` }} />
+					<link rel="stylesheet" href="/assets/app.css" />
+					<script src="/assets/set-locale-cookies.js"></script>
 				</head>
 				<body class="mx-auto max-w-4xl bg-background p-8 font-sans text-foreground">
 					<nav class="mb-6 flex items-center justify-between border-b border-border pb-2">

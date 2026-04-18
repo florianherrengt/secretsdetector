@@ -22,6 +22,7 @@ export const HomePage: FC<HomePageProps> = z
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Secret Detector</title>
           <link rel="stylesheet" href="/assets/app.css" />
+          <script src="/assets/set-locale-cookies.js"></script>
         </head>
         <body class="min-h-screen bg-background font-sans text-foreground">
           <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-4 sm:px-6">
