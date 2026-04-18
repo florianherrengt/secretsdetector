@@ -4,7 +4,7 @@
 
 Detect browser timezone and locale via client-side cookies, render scan result dates in the user's local format with UTC offset. Uses a shared `set-locale-cookies.js` asset loaded on all pages.
 
-Fix: normalize offset formatting to always include `+HH:mm` (e.g. `+00:00` instead of `+0`).
+Fix: normalize offset formatting to always include `+HH:mm` (e.g. `+00:00` instead of `+0`). Update e2e regex to match `+HH:mm` offset.
 
 ---
 

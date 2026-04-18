@@ -47,6 +47,6 @@ test.describe("localized date display", () => {
 		await waitForScanCompletion(page);
 
 		const startedText = page.locator("p.font-mono").first();
-		await expect(startedText).toHaveText(/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}\/\d{2} \(.\+\)/);
+		await expect(startedText).toHaveText(/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}\/\d{2} \([+-]\d{2}:\d{2}\)/);
 	});
 });
