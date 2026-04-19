@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.16 — Fix Server-Side Date Locale Mismatch
+
+Render raw ISO datetime strings server-side instead of calling toLocaleDateString, which uses the server's locale/timezone and can show the wrong calendar day for UTC timestamps near midnight. The client-side timezone-render.js script continues to format into the user's local timezone.
+
 ## v0.1.15 — Client-Side Date Formatting
 
 Add `timezone-render.js` to format `<time>` elements client-side with locale-aware dates. Add `time` element to design system policy. Add `ds-no-inline-scripts` ESLint rule. Update scan result page to format dates client-side.

@@ -93,13 +93,7 @@ const TimestampTime: FC<{ datetime: string }> = z
 	.args(z.custom<{ datetime: string }>())
 	.returns(z.custom<ReturnType<FC<{ datetime: string }>>>())
 	.implement(({ datetime }) => {
-		const date = new Date(datetime);
-		const formatted = date.toLocaleDateString(undefined, {
-			year: "numeric",
-			month: "short",
-			day: "numeric"
-		});
-		return <time datetime={datetime}>{formatted}</time>;
+		return <time datetime={datetime}>{datetime}</time>;
 	});
 
 export const formatDurationMs = z
