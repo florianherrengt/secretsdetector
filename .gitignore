@@ -11,3 +11,5 @@ assets/app.css
 **/.DS_Store
 .ds_store
 **/.ds_store
+specs.md
+specs/*

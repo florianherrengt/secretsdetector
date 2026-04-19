@@ -55,8 +55,9 @@ test.describe("home page", () => {
 
     await expect(page).toHaveTitle("Secret Detector");
     await expect(page.getByRole("button", { name: "Scan now" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Get started" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign in" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Sign up" })).toHaveCount(0);
   });
 
   test("shows go to app button when logged in", async ({ authedPage }) => {
@@ -125,5 +126,55 @@ test.describe("home page", () => {
     await expect(page.getByText("Discovered Subdomains")).toBeVisible();
     await expect(page.getByText("api.app.localhost")).toBeVisible();
     await expect(page.getByText("cdn.app.localhost")).toBeVisible();
+  });
+
+  test("displays flash message when flash cookie is present", async ({ page }) => {
+    const targetDomain = process.env.DOMAIN ?? "127.0.0.1:3000";
+    const baseUrl = targetDomain.includes("://")
+      ? targetDomain
+      : `http://${targetDomain}`;
+    const parsedBaseUrl = new URL(baseUrl);
+
+    await page.context().addCookies([
+      {
+        name: "flash_message",
+        value: "Your account has been deleted.",
+        domain: parsedBaseUrl.hostname,
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+        secure: parsedBaseUrl.protocol === "https:"
+      }
+    ]);
+
+    await page.goto("/");
+    await expect(page.getByText("Your account has been deleted.")).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText("Your account has been deleted.")).not.toBeVisible();
+  });
+
+  test("handles malformed flash cookie without crashing", async ({ page }) => {
+    const targetDomain = process.env.DOMAIN ?? "127.0.0.1:3000";
+    const baseUrl = targetDomain.includes("://")
+      ? targetDomain
+      : `http://${targetDomain}`;
+    const parsedBaseUrl = new URL(baseUrl);
+
+    await page.context().addCookies([
+      {
+        name: "flash_message",
+        value: "%E0%A4%A",
+        domain: parsedBaseUrl.hostname,
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+        secure: parsedBaseUrl.protocol === "https:"
+      }
+    ]);
+
+    await page.goto("/");
+    await expect(page).toHaveTitle("Secret Detector");
+    await expect(page.getByText("Your account has been deleted.")).toHaveCount(0);
   });
 });

@@ -12,6 +12,28 @@ Custom workflows available in `.opencode/commands/` (planning, specs, commit, im
 - Validate everything
 - Keep views pure
 - Prefer simple over abstract
+- Do **not** agree by default
+- Do **not** soften criticism when confident
+- **Flag uncertainty explicitly** (“I’m not certain, but…”)
+- Do **not present guesses as facts**
+- Prefer **simpler solutions and existing tools**
+- If a clearly better approach exists, **you must point it out**
+
+---
+
+## Critical Thinking & Pushback
+
+Before answering, evaluate the request for correctness, feasibility, and simplicity.
+
+### Push back when:
+
+- The request is **incorrect**
+- The approach is **overengineered**
+- A **better / simpler solution exists**
+- It **violates constraints or architecture**
+- The reasoning is **incomplete or wrong**
+
+Optimize for **truth and clarity over agreement**.
 
 ---
 
@@ -63,4 +85,4 @@ Custom workflows available in `.opencode/commands/` (planning, specs, commit, im
 
 ## Next Steps
 
-After completing a task, suggest the natural next steps and use the `question` tool to ask the user what they want to do next.
+Always suggest the natural next steps and use the `question` tool to ask the user what they want to do next.

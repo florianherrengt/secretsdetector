@@ -1,9 +1,17 @@
-import { describe, it, expect } from "vitest";
+/* eslint-disable custom/no-mutable-variables */
+import { beforeAll, describe, it, expect } from "vitest";
+import type { Hono } from "hono";
 
-process.env.ADMIN_BASIC_AUTH_USERNAME = "admin";
-process.env.ADMIN_BASIC_AUTH_PASSWORD = "changeme";
+let app: Hono;
 
-import app from "./index.js";
+beforeAll(async () => {
+	process.env.ADMIN_BASIC_AUTH_USERNAME = "admin";
+	process.env.ADMIN_BASIC_AUTH_PASSWORD = "changeme";
+	process.env.RATE_LIMIT_DISABLED = "true";
+	process.env.NODE_ENV = "test";
+
+	({ default: app } = await import("./index.js"));
+});
 
 describe("GET /healthz", () => {
 	it("returns 200 with status ok", async () => {
@@ -136,14 +144,14 @@ describe("POST /domains", () => {
 
 describe("GET /domains/confirm", () => {
 	it("returns 401 when not authenticated", async () => {
-		const res = await app.request("/domains/confirm?text=test&next=%2Fdomains&back=%2Fdomains");
+		const res = await app.request("/domains/confirm?token=sometoken");
 		expect(res.status).toBe(401);
 	});
 });
 
-describe("POST /domains/:domainId/delete", () => {
+describe("POST /domains/confirm", () => {
 	it("returns 401 when not authenticated", async () => {
-		const res = await app.request("/domains/00000000-0000-4000-8000-000000000000/delete", {
+		const res = await app.request("/domains/confirm?token=sometoken", {
 			method: "POST"
 		});
 		expect(res.status).toBe(401);

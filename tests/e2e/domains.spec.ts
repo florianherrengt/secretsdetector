@@ -28,6 +28,20 @@ test.describe("Domains", () => {
 		expect(response.headers()["location"]).toBe("/domains");
 	});
 
+	test("GET /domains/confirm returns 400 for invalid token when authenticated", async ({
+		request,
+		authHeaders
+	}) => {
+		const response = await request.get(
+			"/domains/confirm?token=invalid-token",
+			{ headers: authHeaders, maxRedirects: 0 }
+		);
+
+		expect(response.status()).toBe(400);
+		const html = await response.text();
+		expect(html).toContain("Invalid or expired confirmation token");
+	});
+
 	test("added domain appears in the list", async ({ request, authHeaders }) => {
 		await request.post("/domains", {
 			headers: {

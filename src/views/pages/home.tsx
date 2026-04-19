@@ -5,6 +5,7 @@ import { AuthNavActions } from "../components/AuthNavActions.js";
 export const homePagePropsSchema = z.object({
   domain: z.string().min(1),
   isLoggedIn: z.boolean(),
+  message: z.string().optional(),
 });
 
 export type HomePageProps = z.infer<typeof homePagePropsSchema>;
@@ -13,7 +14,7 @@ export const HomePage: FC<HomePageProps> = z
   .function()
   .args(homePagePropsSchema)
   .returns(z.custom<ReturnType<FC<HomePageProps>>>())
-  .implement(({ domain, isLoggedIn }) => {
+  .implement(({ domain, isLoggedIn, message }) => {
     return (
       <html lang="en">
         <head>
@@ -39,6 +40,12 @@ export const HomePage: FC<HomePageProps> = z
                 )}
               </div>
             </header>
+
+            {message ? (
+              <div class="rounded-xl border border-border bg-card p-4 text-center text-sm text-foreground">
+                {message}
+              </div>
+            ) : null}
 
             {/* eslint-disable-next-line custom/ds-no-unapproved-class-tokens -- ds-exception: UI-102 | flex-1 centers hero within viewport below header */}
             <section class="flex flex-1 items-center justify-center py-8">

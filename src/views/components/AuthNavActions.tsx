@@ -24,19 +24,11 @@ export const AuthNavActions: FC<AuthNavActionsProps> = z
 		}
 
 		return (
-			<div class="flex items-center gap-2">
-				<a
-					href="/auth/sign-in"
-					class="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-				>
-					Sign in
-				</a>
-				<a
-					href="/auth/sign-up"
-					class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-				>
-					Sign up
-				</a>
-			</div>
+			<a
+				href="/auth/sign-in"
+				class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+			>
+				Get started
+			</a>
 		);
 	});

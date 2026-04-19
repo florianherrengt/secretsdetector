@@ -1,51 +1,30 @@
-You are responsible for maintaining a **product-level changelog** and committing changes.
+You are responsible for maintaining a **changelog** and committing changes.
 The user gave you this for context:
 
 ```text
 $ARGUMENTS
 ```
 
-This repository does **not** use conventional changelog formats.
-It uses **versioned narrative entries** (v0.x), each describing a meaningful product milestone.
-
 ---
 
-### **Changelog Style (STRICT)**
+### **Changelog Style**
 
-Each version must follow this structure:
+Explain **why** the change matters, not what files were touched. Be as long as needed when there's something worth saying — brief only when there isn't.
 
 ```
-## vX.X — <Step Name>
+## vX.X — <Title>
 
-**<One-line product summary>**
-
-- High-signal bullet points (grouped, not noisy)
-
-**Outcome:**
-<What this enables at product level>
+<Explanation of the "why". Can be one line or several paragraphs. Omit only when the title is self-explanatory.>
 ```
 
-Rules:
-
-- This is **product storytelling**, not commit logs
-- Focus on:
-  - capabilities added
-  - system evolution
-  - architectural milestones
-
-- Avoid:
-  - low-level implementation details
-  - file-level changes
-  - obvious noise
+The changelog is ordered **most recent first** (top of file = latest).
 
 ---
 
 ### **Step 1 — Analyze Changes**
 
 - Inspect full git diff (staged + unstaged)
-- Determine:
-  - what _capability_ was added or changed
-  - where it fits in the product progression
+- Determine the product-level intent behind the changes
 
 If changes are trivial → do NOT create a new version
 
@@ -53,73 +32,38 @@ If changes are trivial → do NOT create a new version
 
 ### **Step 2 — Determine Version**
 
-- Find latest version in `CHANGELOG.md` (e.g. v0.5)
-- Increment:
-  - v0.6, v0.7, etc.
-
-- Infer **step name** from intent (e.g. “Detection Improvements”, “Batch Pipeline”, etc.)
+- Find latest version at the **top** of `CHANGELOG.md`
+- Increment minor version
 
 ---
 
 ### **Step 3 — Write New Entry**
 
-Append a new section at the bottom (after the latest version entry):
-
-- Title: next version + step name
-- Summary: one strong sentence
-- Bullets:
-  - grouped by theme if needed
-  - no more than ~6–10 bullets
-
-- Outcome:
-  - must describe **what is now possible**
-
-Avoid duplication with previous versions.
+**Prepend** the new entry at the **top** of `CHANGELOG.md` (before the first `## v`).
 
 ---
 
-### **Step 4 — Generate Commit Message**
+### **Step 4 — Commit Message**
 
-Format:
+Keep it short. Format:
 
 ```
-<type>: <step name>
-
-- key capability 1
-- key capability 2
+<type>: <title>
 ```
 
-Where:
-
-- `<type>` is usually `feat` (default), or `fix` / `refactor` if clearly appropriate
-- Keep aligned with changelog narrative
+- `<type>`: `feat` (default), `fix`, or `refactor`
+- Do not repeat changelog content in the commit
 
 ---
 
 ### **Step 5 — Stage + Commit**
 
-- Stage all changes
-- Include updated `CHANGELOG.md`
-- Create a **single clean commit**
+- Stage all changes including `CHANGELOG.md`
+- Single clean commit
 
 ---
 
-### **Step 6 — Verification Loop**
-
-After commit:
-
-- Ensure:
-  - new version is correctly incremented
-  - formatting matches previous entries exactly
-  - no duplicate or redundant content
-
-- If incorrect:
-  - amend commit
-  - retry (max 3 times)
-
----
-
-### **Step 7 — Output (minimal)**
+### **Step 6 — Output**
 
 Return ONLY:
 
@@ -128,13 +72,3 @@ Return ONLY:
 
 done
 ```
-
----
-
-### **Critical Constraints**
-
-- Do NOT switch to “Unreleased” style
-- Do NOT list raw diffs
-- Do NOT create multiple versions in one run
-- Do NOT over-explain
-- Maintain **consistent tone with existing entries**

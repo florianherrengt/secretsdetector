@@ -5,7 +5,6 @@ import { Section } from "../components/Section.js";
 import { Layout } from "../layout.js";
 
 export const authRequestPagePropsSchema = z.object({
-	mode: z.enum(["sign-in", "sign-up"]),
 	message: z.string().optional()
 });
 
@@ -15,8 +14,8 @@ export const AuthRequestPage: FC<AuthRequestPageProps> = z
 	.function()
 	.args(authRequestPagePropsSchema)
 	.returns(z.custom<ReturnType<FC<AuthRequestPageProps>>>())
-	.implement(({ mode, message }) => {
-		const title = mode === "sign-up" ? "Sign Up" : "Sign In";
+	.implement(({ message }) => {
+		const title = "Get Started";
 
 		return (
 			<Layout title={title}>
@@ -39,7 +38,6 @@ export const AuthRequestPage: FC<AuthRequestPageProps> = z
 									placeholder="you@example.com"
 									class="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
 								/>
-								<input type="hidden" name="mode" value={mode} />
 								<button
 									type="submit"
 									class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"

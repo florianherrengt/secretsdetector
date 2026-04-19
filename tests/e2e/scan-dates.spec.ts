@@ -20,22 +20,13 @@ const waitForScanCompletion = async (page: import("@playwright/test").Page) => {
 	throw new Error("Timed out waiting for scan completion");
 };
 
-test.describe("localized date display", () => {
-	test("sets tz and locale cookies then renders formatted dates on scan result", async ({
+test.describe("scan result timestamps", () => {
+	test("renders <time> elements with ISO datetime on scan result", async ({
 		authedPage,
 	}) => {
 		const page = authedPage;
 
 		await page.goto("/");
-
-		const tzCookie = await page.context().cookies();
-		const tz = tzCookie.find((c) => c.name === "tz");
-		const locale = tzCookie.find((c) => c.name === "locale");
-
-		expect(tz).toBeDefined();
-		expect(tz!.value.length).toBeGreaterThan(0);
-		expect(locale).toBeDefined();
-		expect(locale!.value.length).toBeGreaterThan(0);
 
 		await page
 			.getByPlaceholder("Enter any URL to scan")
@@ -46,7 +37,8 @@ test.describe("localized date display", () => {
 		await expect(page).toHaveTitle("Scan Result | Secret Detector");
 		await waitForScanCompletion(page);
 
-		const startedText = page.locator("p.font-mono").first();
-		await expect(startedText).toHaveText(/\d{2}:\d{2}:\d{2} \d{2}\/\d{2}\/\d{2} \(.\+\)/);
+		const timeElement = page.locator("time").first();
+		await expect(timeElement).toHaveAttribute("datetime", /\d{4}-\d{2}-\d{2}T/);
+		await expect(timeElement).toHaveText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 	});
 });

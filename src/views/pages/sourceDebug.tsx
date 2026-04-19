@@ -35,7 +35,7 @@ export const SourceDebugPage: FC<SourceDebugPageProps> = z
 					<h1 class="text-xl font-semibold text-foreground">{source.label} Debug</h1>
 					<Section title="Debug Input" description={source.description}>
 						<ScanCard>
-							<form method="get" action={`/debug/sources/${source.key}`} class="space-y-3">
+							<form method="post" action={`/debug/sources/${source.key}`} class="space-y-3">
 						<input type="hidden" name="source" value={source.key} />
 						{source.key === "crtsh" ? (
 							<>

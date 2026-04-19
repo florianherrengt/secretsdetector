@@ -1,4 +1,4 @@
-import { index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const scanStatusEnum = pgEnum("scan_status", [
 	"pending",
@@ -19,7 +19,7 @@ export const scans = pgTable("scans", {
 	domainId: uuid("domain_id")
 		.notNull()
 		// eslint-disable-next-line custom/no-raw-functions
-		.references(() => domains.id),
+		.references(() => domains.id, { onDelete: "cascade" }),
 	status: scanStatusEnum("status").notNull(),
 	startedAt: timestamp("started_at", { withTimezone: true, mode: "date" }).notNull(),
 	finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
@@ -46,7 +46,7 @@ export const findings = pgTable(
 		scanId: uuid("scan_id")
 			.notNull()
 			// eslint-disable-next-line custom/no-raw-functions
-			.references(() => scans.id),
+			.references(() => scans.id, { onDelete: "cascade" }),
 		checkId: text("check_id").notNull(),
 		type: findingTypeEnum("type").notNull(),
 		file: text("file").notNull(),
@@ -77,12 +77,16 @@ export const mockEmails = pgTable("mock_emails", {
 export const users = pgTable("users", {
 	id: uuid("id").primaryKey(),
 	email: text("email").notNull().unique(),
+	isVerified: boolean("is_verified").notNull().default(false),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
 });
 
 export const loginTokens = pgTable("login_tokens", {
 	id: uuid("id").primaryKey(),
-	email: text("email").notNull(),
+	email: text("email")
+		.notNull()
+		// eslint-disable-next-line custom/no-raw-functions
+		.references(() => users.email, { onDelete: "cascade" }),
 	tokenHash: text("token_hash").notNull(),
 	expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
 	usedAt: timestamp("used_at", { withTimezone: true, mode: "date" }),
@@ -91,6 +95,10 @@ export const loginTokens = pgTable("login_tokens", {
 
 export const userDomains = pgTable("user_domains", {
 	id: uuid("id").primaryKey().defaultRandom(),
+	userId: uuid("user_id")
+		.notNull()
+		// eslint-disable-next-line custom/no-raw-functions
+		.references(() => users.id, { onDelete: "cascade" }),
 	domain: text("domain").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
 });
@@ -100,7 +108,7 @@ export const sessions = pgTable("sessions", {
 	userId: uuid("user_id")
 		.notNull()
 		// eslint-disable-next-line custom/no-raw-functions
-		.references(() => users.id),
+		.references(() => users.id, { onDelete: "cascade" }),
 	expiresAt: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull()
 });

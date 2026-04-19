@@ -43,8 +43,9 @@ test.describe("Magic Link Authentication", () => {
         (a: MockEmail, b: MockEmail) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )[0];
 
-      expect(latestEmail.subject).toBe("Your login link");
+      expect(latestEmail.subject).toBe("Welcome to Secret Detector");
       expect(latestEmail.html).toContain("<a");
+      expect(latestEmail.html).toContain("/terms");
 
       const linkMatch = latestEmail.html.match(/href="([^"]*auth\/verify\?token=[^"]*)"/);
       expect(linkMatch).not.toBeNull();
@@ -120,6 +121,33 @@ test.describe("Magic Link Authentication", () => {
     expect(response.status()).toBe(401);
     const body = await response.json();
     expect(body).toHaveProperty("error");
+  });
+
+  test("returning user receives login email", async ({ request }) => {
+    const timestamp = Date.now();
+    const testEmail = `returning-${timestamp}@example.com`;
+
+    await createAuthenticatedSession(request, testEmail);
+
+    const response = await request.post(`${baseUrl}/auth/request-link`, {
+      headers: { "Content-Type": "application/json" },
+      data: { email: testEmail }
+    });
+
+    expect(response.status()).toBe(200);
+
+    const emailsResponse = await request.get(`${baseUrl}/debug/emails`);
+    const emails = await emailsResponse.json();
+
+    const testEmails = emails.filter((email: MockEmail) => email.to === testEmail);
+    const latestEmail = testEmails.sort(
+      (a: MockEmail, b: MockEmail) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+
+    expect(latestEmail.subject).toBe("Your login link");
+    expect(latestEmail.html).not.toContain("/terms");
+    expect(latestEmail.html).not.toContain("/privacy");
+    expect(latestEmail.html).toContain("/auth/verify?token=");
   });
 
   test("logout clears session", async ({ request }) => {

@@ -116,7 +116,8 @@ describe("ScanResultPage deterministic contracts", () => {
 		const html = renderPage({ topNavMode: "auth" });
 
 		expect(html).toContain("href=\"/auth/sign-in\"");
-		expect(html).toContain("href=\"/auth/sign-up\"");
+		expect(html).toContain("Get started");
+		expect(html).not.toContain("href=\"/auth/sign-up\"");
 		expect(html).not.toContain("href=\"/settings\"");
 	});
 });
