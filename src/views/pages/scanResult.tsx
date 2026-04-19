@@ -93,8 +93,13 @@ const TimestampTime: FC<{ datetime: string }> = z
 	.args(z.custom<{ datetime: string }>())
 	.returns(z.custom<ReturnType<FC<{ datetime: string }>>>())
 	.implement(({ datetime }) => {
-		// eslint-disable-next-line custom/ds-no-raw-html-elements -- ds-exception: UI-103 | <time> for machine-readable dates, formatted client-side
-		return <time datetime={datetime}>{datetime}</time>;
+		const date = new Date(datetime);
+		const formatted = date.toLocaleDateString(undefined, {
+			year: "numeric",
+			month: "short",
+			day: "numeric"
+		});
+		return <time datetime={datetime}>{formatted}</time>;
 	});
 
 export const formatDurationMs = z

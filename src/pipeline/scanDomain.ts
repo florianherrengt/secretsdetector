@@ -871,7 +871,7 @@ export const buildSubdomainAssetCoverage = z
 		const assetPathsByHost = new Map<string, Set<string>>();
 
 		for (const script of scripts) {
-			let parsed; // eslint-disable-line custom/no-mutable-variables
+			let parsed;
 
 			try {
 				parsed = new URL(script.file);

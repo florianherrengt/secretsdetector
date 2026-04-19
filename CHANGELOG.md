@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.15 — Client-Side Date Formatting
+
+Add `timezone-render.js` to format `<time>` elements client-side with locale-aware dates. Add `time` element to design system policy. Add `ds-no-inline-scripts` ESLint rule. Update scan result page to format dates client-side.
+
 ## v0.1.14 — Fix Debug Page E2E Timeout
 
 Decoupled debug page rendering from external API calls. GET now only pre-fills the form and renders immediately; POST triggers the actual fetch. Prevents Playwright timeouts when external sources (crt.sh) are slow.

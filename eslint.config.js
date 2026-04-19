@@ -28,6 +28,7 @@ export default [
       "custom/ds-no-arbitrary-tailwind-values": "error",
       "custom/ds-no-unapproved-class-tokens": "error",
       "custom/ds-no-direct-semantic-styling": "error",
+      "custom/ds-no-inline-scripts": "error",
       "custom/ds-no-unsafe-classname-construction": "error",
       "custom/ds-enforce-suppression-format": "error",
 
