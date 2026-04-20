@@ -73,6 +73,7 @@ export const mockEmails = pgTable('mock_emails', {
 export const users = pgTable('users', {
 	id: uuid('id').primaryKey(),
 	email: text('email').notNull().unique(),
+	stripeCustomerId: text('stripe_customer_id').unique(),
 	isVerified: boolean('is_verified').notNull().default(false),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
 });

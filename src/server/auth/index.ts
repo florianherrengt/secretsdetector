@@ -131,7 +131,17 @@ export const verifyMagicLink = z
 export const getSession = z
 	.function()
 	.args(z.string())
-	.returns(z.promise(z.nullable(z.object({ userId: z.string(), email: z.string() }))))
+	.returns(
+		z.promise(
+			z.nullable(
+				z.object({
+					userId: z.string(),
+					email: z.string(),
+					stripeCustomerId: z.string().nullable(),
+				}),
+			),
+		),
+	)
 	.implement(async (sessionId) => {
 		const [session] = await db
 			.select()
@@ -151,7 +161,11 @@ export const getSession = z
 			return null;
 		}
 
-		return { userId: user.id, email: user.email };
+		return {
+			userId: user.id,
+			email: user.email,
+			stripeCustomerId: user.stripeCustomerId,
+		};
 	});
 
 export const deleteAccount = z

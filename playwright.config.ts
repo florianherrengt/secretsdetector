@@ -32,6 +32,7 @@ export default defineConfig({
 			DEBUG_ENDPOINT: 'true',
 			RESEND_API_KEY: '',
 			RATE_LIMIT_DISABLED: 'true',
+			STRIPE_BILLING_MOCK_URL: 'https://billing-mock.stripe.com/test-portal',
 		},
 	},
 });

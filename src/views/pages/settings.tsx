@@ -6,6 +6,9 @@ import { Layout } from '../layout.js';
 
 export const settingsPagePropsSchema = z.object({
 	email: z.string().min(1),
+	message: z.string().min(1).optional(),
+	billingPortalActionUrl: z.string().min(1),
+	canManageBilling: z.boolean(),
 	deleteAccountUrl: z.string().min(1),
 });
 
@@ -15,11 +18,19 @@ export const SettingsPage: FC<SettingsPageProps> = z
 	.function()
 	.args(settingsPagePropsSchema)
 	.returns(z.custom<ReturnType<FC<SettingsPageProps>>>())
-	.implement(({ email, deleteAccountUrl }) => {
+	.implement(({ email, message, billingPortalActionUrl, canManageBilling, deleteAccountUrl }) => {
 		return (
 			<Layout title="Settings" topNavMode="app">
 				<div class="space-y-6">
 					<h1 class="text-xl font-semibold text-foreground">Settings</h1>
+					{message ? (
+						<div
+							data-testid="flash-message"
+							class="rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground"
+						>
+							{message}
+						</div>
+					) : null}
 					<Section title="Navigation">
 						<ScanCard>
 							<a
@@ -45,6 +56,36 @@ export const SettingsPage: FC<SettingsPageProps> = z
 										Sign out
 									</button>
 								</form>
+							</div>
+						</ScanCard>
+					</Section>
+					<Section title="Billing" data-testid="billing-section">
+						<ScanCard>
+							<div class="space-y-3">
+								<p data-testid="billing-description" class="text-sm text-foreground">
+									Open Stripe Customer Portal to manage your plan, invoices, and payment methods.
+								</p>
+								<p class="text-xs text-muted-foreground">
+									Portal links are short-lived. Click Manage billing when you're ready to use it.
+								</p>
+								<form data-testid="billing-form" action={billingPortalActionUrl} method="post">
+									<button
+										type="submit"
+										data-testid="manage-billing-button"
+										disabled={!canManageBilling}
+										class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+									>
+										Manage billing
+									</button>
+								</form>
+								{canManageBilling ? null : (
+									<p
+										data-testid="billing-unavailable-message"
+										class="text-xs text-muted-foreground"
+									>
+										Billing portal is unavailable until Stripe is configured.
+									</p>
+								)}
 							</div>
 						</ScanCard>
 					</Section>

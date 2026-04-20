@@ -192,6 +192,86 @@ test.describe('Settings', () => {
 		await expect(authedPage.locator('text=Email').locator('..')).toContainText(authSession.email);
 	});
 
+	test('settings page includes billing section with manage billing button', async ({
+		request,
+		authHeaders,
+		authSession: _authSession,
+	}) => {
+		const response = await request.get('/settings', { headers: authHeaders });
+
+		expect(response.status()).toBe(200);
+		const html = await response.text();
+		expect(html).toContain('Billing');
+		expect(html).toContain('Manage billing');
+		expect(html).toContain('action="/settings/billing/portal"');
+		expect(html).toContain('method="post"');
+	});
+
+	test('settings page renders manage billing button in browser', async ({
+		authedPage,
+		authSession: _authSession,
+	}) => {
+		await authedPage.goto('/settings');
+
+		await expect(authedPage.getByRole('heading', { name: 'Billing' })).toBeVisible();
+		await expect(
+			authedPage.getByText(
+				'Open Stripe Customer Portal to manage your plan, invoices, and payment methods.',
+			),
+		).toBeVisible();
+		await expect(
+			authedPage.locator('form[action="/settings/billing/portal"] button[type="submit"]'),
+		).toBeVisible();
+	});
+
+	test('POST /settings/billing/portal requires authentication', async ({ request }) => {
+		const response = await request.post('/settings/billing/portal', {
+			headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			maxRedirects: 0,
+		});
+
+		expect(response.status()).toBe(401);
+	});
+
+	test('POST /settings/billing/portal returns redirect via API', async ({
+		request,
+		authHeaders,
+	}) => {
+		const response = await request.post('/settings/billing/portal', {
+			headers: {
+				...authHeaders,
+				'content-type': 'application/x-www-form-urlencoded',
+			},
+			maxRedirects: 0,
+		});
+
+		expect(response.status()).toBe(303);
+		const location = response.headers()['location'];
+		expect(location).toBe('https://billing-mock.stripe.com/test-portal');
+	});
+
+	test('flash message from billing portal error is displayed on settings page', async ({
+		authedPage,
+		authSession: _authSession,
+	}) => {
+		const cookies = await authedPage.context().cookies();
+		const sessionCookie = cookies.find((c) => c.name === 'session_id');
+		await authedPage.context().addCookies([
+			{
+				name: 'flash_message',
+				value: encodeURIComponent('Unable to open billing portal right now. Please try again.'),
+				domain: sessionCookie.domain,
+				path: '/',
+				sameSite: 'Lax',
+			},
+		]);
+
+		await authedPage.goto('/settings');
+		const flash = authedPage.locator('[data-testid="flash-message"]');
+		await expect(flash).toBeVisible();
+		await expect(flash).toContainText('Unable to open billing portal right now. Please try again.');
+	});
+
 	test('user can re-register after deletion', async ({ request }) => {
 		const email = `re-reg-${Date.now()}@example.com`;
 
