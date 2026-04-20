@@ -51,6 +51,7 @@ export const designSystemPolicy = {
 		'th',
 		'td',
 		'pre',
+		'time',
 		'svg',
 		'path',
 		'circle',

@@ -7,6 +7,7 @@ import dsNoUnapprovedClassTokens from './rules/ds-no-unapproved-class-tokens.js'
 import dsNoUnsafeClassnameConstruction from './rules/ds-no-unsafe-classname-construction.js';
 import dsEnforceSuppressionFormat from './rules/ds-enforce-suppression-format.js';
 import dsNoDirectSemanticStyling from './rules/ds-no-direct-semantic-styling.js';
+import dsNoInlineScripts from './rules/ds-no-inline-scripts.js';
 
 export const rules = {
 	'no-raw-functions': noRawFunctions,
@@ -18,6 +19,7 @@ export const rules = {
 	'ds-no-direct-semantic-styling': dsNoDirectSemanticStyling,
 	'ds-no-unsafe-classname-construction': dsNoUnsafeClassnameConstruction,
 	'ds-enforce-suppression-format': dsEnforceSuppressionFormat,
+	'ds-no-inline-scripts': dsNoInlineScripts,
 };
 
 export default {

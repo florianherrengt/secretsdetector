@@ -25,6 +25,7 @@ export const Layout: FC<LayoutProps> = z
 					) : null}
 					<title>{title} | Secret Detector</title>
 					<link rel="stylesheet" href="/assets/app.css" />
+					<script src="/assets/timezone-render.js"></script>
 				</head>
 				<body class="mx-auto max-w-4xl bg-background p-8 font-sans text-foreground">
 					<nav class="mb-6 flex items-center justify-between border-b border-border pb-2">

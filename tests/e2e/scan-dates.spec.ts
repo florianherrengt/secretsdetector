@@ -31,6 +31,7 @@ test.describe('scan result timestamps', () => {
 
 		const timeElement = page.locator('time').first();
 		await expect(timeElement).toHaveAttribute('datetime', /\d{4}-\d{2}-\d{2}T/);
-		await expect(timeElement).toHaveText(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+		await expect(timeElement).not.toHaveText('— : —');
+		await expect(timeElement).toHaveText(/[0-9]/);
 	});
 });
