@@ -6,3 +6,5 @@ screenshots/
 .opencode/
 .serena/
 .env
+.githooks/
+.prettierignore
