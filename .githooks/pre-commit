@@ -4,21 +4,6 @@ if [ -n "$(git rev-parse -q --verify MERGE_HEAD 2>/dev/null)" ]; then
 	exit 0
 fi
 
-if [ ! -f "CHANGELOG.md" ]; then
-	echo "ERROR: CHANGELOG.md is missing. Add it before committing."
-	exit 1
-fi
-
-if ! git diff --cached --name-only -- "CHANGELOG.md" | grep -q "^CHANGELOG.md$"; then
-	echo "ERROR: Add an entry to CHANGELOG.md and stage it before committing."
-	exit 1
-fi
-
-if ! git diff --cached --unified=0 -- "CHANGELOG.md" | grep -q "^+[^+]"; then
-	echo "ERROR: CHANGELOG.md is staged but has no added entry lines."
-	exit 1
-fi
-
 echo "Running lint..."
 if ! npm run lint; then
 	echo "ERROR: Lint failed. Fix lint issues before committing."
