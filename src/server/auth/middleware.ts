@@ -2,13 +2,6 @@ import { z } from "zod";
 import type { Context, Next } from "hono";
 import { getSession } from "./index.js";
 
-export interface AuthContext extends Context {
-  user?: {
-    userId: string;
-    email: string;
-  };
-}
-
 const isResponse = z
   .function()
   .args(z.unknown())
@@ -27,7 +20,7 @@ export const extractSessionId = z
 
 export const requireAuth = z
   .function()
-  .args(z.custom<AuthContext>(), z.custom<Next>())
+  .args(z.custom<Context>(), z.custom<Next>())
   .returns(z.promise(z.instanceof(Response)))
   .implement(async (c, next) => {
     const sessionId = extractSessionId(c);
@@ -42,7 +35,7 @@ export const requireAuth = z
       return c.json({ error: "Invalid or expired session" }, 401);
     }
 
-    c.user = user;
+    c.set("user", user);
     const result = await next();
     
     if (isResponse(result)) {

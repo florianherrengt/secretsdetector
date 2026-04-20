@@ -7,7 +7,7 @@ import { buildConfirmUrl } from "../confirmQuerySchema.js";
 import { createConfirmHandlers } from "../confirmHandlerFactory.js";
 import { deleteAccount } from "../../auth/index.js";
 import { getEmailProvider } from "../../email/index.js";
-import { requireAuth, type AuthContext } from "../../auth/middleware.js";
+import { requireAuth } from "../../auth/middleware.js";
 import { setFlashMessage } from "../../../lib/flash.js";
 
 const settingsRoutes = new Hono();
@@ -21,7 +21,7 @@ settingsRoutes.get(
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement(async (c) => {
-			const user = (c as AuthContext).user!;
+		const user = c.get("user");
 			const viewProps = settingsPagePropsSchema.parse({
 				email: user.email,
 				deleteAccountUrl: await buildConfirmUrl("delete_account", user.userId, undefined, "/settings")
@@ -36,7 +36,7 @@ const handleDeleteAccount = z
 	.args(z.custom<Context>(), z.custom<{ action: string; context: Record<string, string> }>())
 	.returns(z.promise(z.instanceof(Response)))
 	.implement(async (c) => {
-		const user = (c as AuthContext).user!;
+		const user = c.get("user");
 		await deleteAccount(user.userId);
 
 		try {

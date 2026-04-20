@@ -9,7 +9,7 @@ import { createConfirmHandlers } from "../confirmHandlerFactory.js";
 import { db } from "../../db/client.js";
 import { domains, findings, scans, userDomains } from "../../db/schema.js";
 import { normalizeSubmittedDomain } from "../../scan/scanJob.js";
-import { requireAuth, type AuthContext } from "../../auth/middleware.js";
+import { requireAuth } from "../../auth/middleware.js";
 
 const domainRoutes = new Hono();
 
@@ -30,7 +30,7 @@ domainRoutes.get(
 		.args(z.custom<Context>())
 		.returns(z.custom<Response | Promise<Response>>())
 		.implement(async (c) => {
-			const user = (c as AuthContext).user!;
+			const user = c.get("user");
 			const rows = await db.select().from(userDomains).where(eq(userDomains.userId, user.userId));
 			const uniqueHostnames = [...new Set(rows.map((row) => row.domain))];
 			const domainRows = uniqueHostnames.length > 0
@@ -112,7 +112,7 @@ const handleDeleteDomain = z
 	.args(z.custom<Context>(), z.custom<{ action: string; context: Record<string, string> }>())
 	.returns(z.promise(z.instanceof(Response)))
 	.implement(async (c, resolved) => {
-		const user = (c as AuthContext).user!;
+		const user = c.get("user");
 		const parsedParams = deleteDomainParamsSchema.safeParse({ domainId: resolved.context.domainId });
 
 		if (!parsedParams.success) {
@@ -165,7 +165,7 @@ domainRoutes.post(
 			const normalizedDomain = normalizeSubmittedDomain(parsedForm.data.domain);
 
 			await db.insert(userDomains).values({
-				userId: (c as AuthContext).user!.userId,
+				userId: c.get("user").userId,
 				domain: normalizedDomain,
 				createdAt: new Date()
 			});
