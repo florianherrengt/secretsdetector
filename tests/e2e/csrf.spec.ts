@@ -58,14 +58,16 @@ test.describe('CSRF Protection', () => {
 		const response = await request.post('/scan', {
 			headers: {
 				'content-type': 'application/x-www-form-urlencoded',
+				Origin: 'http://127.0.0.1:3000',
 			},
 			form: {
 				domain: 'example.com',
 				visitorFingerprint: 'fp-test-' + Date.now(),
 			},
+			maxRedirects: 0,
 		});
 
 		expect(response.status()).toBe(302);
-		expect(response.headers()['location']).toContain('/scan?domain=');
+		expect(response.headers()['location']).toMatch(/^\/scan\/[a-f0-9-]+$/);
 	});
 });

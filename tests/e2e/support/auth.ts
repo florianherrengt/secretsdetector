@@ -100,6 +100,32 @@ export const verifyMagicLinkToken = async (
 	return await request.get(url, { maxRedirects: 0 });
 };
 
+export const extractCsrfToken = (html: string): string | null => {
+	const match = html.match(/name="_csrf" value="([^"]+)"/);
+	return match?.[1] ?? null;
+};
+
+export const getOrigin = (): string => {
+	const d = process.env.DOMAIN ?? '127.0.0.1:3000';
+	return d.includes('://') ? d : `http://${d}`;
+};
+
+export const withOrigin = (headers: Record<string, string>): Record<string, string> => ({
+	...headers,
+	Origin: getOrigin(),
+});
+
+export const getCsrfToken = async (
+	request: APIRequestContext,
+	authHeaders: Record<string, string>,
+): Promise<string> => {
+	const response = await request.get('/domains', { headers: authHeaders });
+	const html = await response.text();
+	const token = extractCsrfToken(html);
+	if (!token) throw new Error('CSRF token not found in page');
+	return token;
+};
+
 export const createAuthenticatedSession = async (
 	request: APIRequestContext,
 	email = `e2e-${Date.now()}-${crypto.randomUUID()}@example.com`,

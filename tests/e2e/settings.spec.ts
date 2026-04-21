@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures/authed';
-import { createAuthenticatedSession } from './support/auth';
+import { createAuthenticatedSession, getCsrfToken, withOrigin } from './support/auth';
 import {
 	getConfirmTokenRow,
 	parseConfirmTokenRow,
@@ -65,9 +65,7 @@ test.describe('Settings', () => {
 
 	test('POST /settings/confirm returns 401 when not authenticated', async ({ request }) => {
 		const response = await request.post('/settings/confirm?token=sometoken', {
-			headers: {
-				'content-type': 'application/x-www-form-urlencoded',
-			},
+			headers: withOrigin({ 'content-type': 'application/x-www-form-urlencoded' }),
 			maxRedirects: 0,
 		});
 
@@ -78,11 +76,13 @@ test.describe('Settings', () => {
 		request,
 		authHeaders,
 	}) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		const response = await request.post('/auth/logout', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
+			}),
+			form: { _csrf: csrfToken },
 			maxRedirects: 0,
 		});
 
@@ -95,11 +95,13 @@ test.describe('Settings', () => {
 	});
 
 	test('session is invalidated after sign out', async ({ request, authHeaders }) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		await request.post('/auth/logout', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
+			}),
+			form: { _csrf: csrfToken },
 			maxRedirects: 0,
 		});
 
@@ -226,7 +228,7 @@ test.describe('Settings', () => {
 
 	test('POST /settings/billing/portal requires authentication', async ({ request }) => {
 		const response = await request.post('/settings/billing/portal', {
-			headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			headers: withOrigin({ 'content-type': 'application/x-www-form-urlencoded' }),
 			maxRedirects: 0,
 		});
 
@@ -237,11 +239,13 @@ test.describe('Settings', () => {
 		request,
 		authHeaders,
 	}) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		const response = await request.post('/settings/billing/portal', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
+			}),
+			form: { _csrf: csrfToken },
 			maxRedirects: 0,
 		});
 
@@ -276,21 +280,24 @@ test.describe('Settings', () => {
 		const email = `re-reg-${Date.now()}@example.com`;
 
 		const session = await createAuthenticatedSession(request, email);
+		const authHeaders = { Cookie: session.cookieHeader };
 
 		const settingsResponse = await request.get(`${baseUrl}/settings`, {
-			headers: {
-				Cookie: session.cookieHeader,
-			},
+			headers: authHeaders,
 		});
 		const settingsHtml = await settingsResponse.text();
 		const deleteAccountHref = settingsHtml.match(/href="(\/settings\/confirm\?token=[^"]+)"/)?.[1];
 		expect(deleteAccountHref).toBeTruthy();
 
+		const csrfToken = settingsHtml.match(/name="_csrf" value="([^"]+)"/)?.[1];
+		expect(csrfToken).toBeTruthy();
+
 		const deleteResponse = await request.post(`${baseUrl}${deleteAccountHref}`, {
-			headers: {
-				Cookie: session.cookieHeader,
+			headers: withOrigin({
+				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
+			}),
+			form: { _csrf: csrfToken },
 			maxRedirects: 0,
 		});
 

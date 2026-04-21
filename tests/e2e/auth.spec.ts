@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createAuthenticatedSession } from './support/auth';
+import { createAuthenticatedSession, withOrigin } from './support/auth';
 
 const domain = process.env.DOMAIN ?? '127.0.0.1:3000';
 
@@ -158,19 +158,32 @@ test.describe('Magic Link Authentication', () => {
 			`test-logout-${Date.now()}@example.com`,
 		);
 		const sessionId = session.sessionId;
+		const authHeaders = { Cookie: `session_id=${sessionId}` };
 
 		const whoamiBeforeResponse = await request.get(`${baseUrl}/auth/whoami`, {
-			headers: { Cookie: `session_id=${sessionId}` },
+			headers: authHeaders,
 		});
 		expect(whoamiBeforeResponse.status()).toBe(200);
 
-		const logoutResponse = await request.post(`${baseUrl}/auth/logout`, {
-			headers: { Cookie: `session_id=${sessionId}` },
+		const settingsResponse = await request.get(`${baseUrl}/settings`, {
+			headers: authHeaders,
 		});
-		expect(logoutResponse.status()).toBe(200);
+		const settingsHtml = await settingsResponse.text();
+		const csrfToken = settingsHtml.match(/name="_csrf" value="([^"]+)"/)?.[1];
+		expect(csrfToken).toBeTruthy();
+
+		const logoutResponse = await request.post(`${baseUrl}/auth/logout`, {
+			headers: withOrigin({
+				...authHeaders,
+				'content-type': 'application/x-www-form-urlencoded',
+			}),
+			form: { _csrf: csrfToken },
+			maxRedirects: 0,
+		});
+		expect(logoutResponse.status()).toBe(302);
 
 		const whoamiAfterResponse = await request.get(`${baseUrl}/auth/whoami`, {
-			headers: { Cookie: `session_id=${sessionId}` },
+			headers: authHeaders,
 		});
 		expect(whoamiAfterResponse.status()).toBe(401);
 	});

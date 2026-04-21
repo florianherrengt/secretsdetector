@@ -88,16 +88,17 @@ opencode run "${OPENCODE_ARGS[@]}" \
   "Open a PR for the changes."
 echo
 
-# ─── Step 7: Watch CI, fix if failed ──────────────────────────────
+# ─── Step 7: Watch CI, fix if failed, loop until pass ────────────────
 echo "=== Step 7: Watch CI ==="
-RUN_ID=$(gh run list --branch "$(git branch --show-current)" --limit 1 --json databaseId --jq '.[0].databaseId')
-echo "CI run: $RUN_ID"
+opencode run "${OPENCODE_ARGS[@]}" \
+  --command ci-fix-loop \
+  "Run the CI fix loop."
+echo
 
-if ! gh run watch "$RUN_ID" --exit-status; then
-  opencode run "${OPENCODE_ARGS[@]}" \
-    --command execute-plan \
-    "CI run $RUN_ID failed. Check the CI errors, fix them, commit, and push."
-  echo
+BRANCH=$(git branch --show-current)
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+if [[ -n "$PR_NUMBER" ]]; then
+  gh pr comment "$PR_NUMBER" --body "/opencode review this PR"
 fi
 
 echo "=== All steps complete ==="

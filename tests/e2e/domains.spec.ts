@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures/authed';
+import { getCsrfToken, withOrigin } from './support/auth';
 
 test.describe('Domains', () => {
 	test('GET /domains returns domain list page when authenticated', async ({
@@ -15,12 +16,13 @@ test.describe('Domains', () => {
 	});
 
 	test('POST /domains adds a domain and redirects', async ({ request, authHeaders }) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		const response = await request.post('/domains', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
-			form: { domain: 'example.com' },
+			}),
+			form: { domain: 'example.com', _csrf: csrfToken },
 			maxRedirects: 0,
 		});
 
@@ -43,12 +45,13 @@ test.describe('Domains', () => {
 	});
 
 	test('added domain appears in the list', async ({ request, authHeaders }) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		await request.post('/domains', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
-			form: { domain: 'test-e2e.io' },
+			}),
+			form: { domain: 'test-e2e.io', _csrf: csrfToken },
 		});
 
 		const listResponse = await request.get('/domains', { headers: authHeaders });
@@ -57,24 +60,26 @@ test.describe('Domains', () => {
 	});
 
 	test('POST /domains rejects empty domain', async ({ request, authHeaders }) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		const response = await request.post('/domains', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
-			form: { domain: '' },
+			}),
+			form: { domain: '', _csrf: csrfToken },
 		});
 
 		expect(response.status()).toBe(400);
 	});
 
 	test('domain list page shows scan now links', async ({ request, authHeaders }) => {
+		const csrfToken = await getCsrfToken(request, authHeaders);
 		await request.post('/domains', {
-			headers: {
+			headers: withOrigin({
 				...authHeaders,
 				'content-type': 'application/x-www-form-urlencoded',
-			},
-			form: { domain: 'scan-target.com' },
+			}),
+			form: { domain: 'scan-target.com', _csrf: csrfToken },
 		});
 
 		const listResponse = await request.get('/domains', { headers: authHeaders });

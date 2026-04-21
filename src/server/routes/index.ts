@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { z } from 'zod';
@@ -42,10 +43,46 @@ const endpointRateLimiter = new RateLimiterRedis({
 
 app.route('/', healthzRoutes);
 
+app.onError(
+	z
+		.function()
+		.args(z.instanceof(Error), z.custom<Context>())
+		.returns(z.custom<Response>())
+		.implement((err, c) => {
+			if (err instanceof HTTPException) {
+				return err.getResponse();
+			}
+			console.error('Unhandled server error:', err);
+			return c.text('Internal Server Error', 500);
+		}),
+);
+
+const normalizeLocalhostOrigin = z
+	.function()
+	.args(z.string())
+	.returns(z.string())
+	.implement((u) => u.replace('://127.0.0.1', '://localhost').replace('://[::1]', '://localhost'));
+
+const csrfOriginHandler = z
+	.function()
+	.args(z.string().optional(), z.custom<Context>())
+	.returns(z.boolean())
+	.implement((origin, c) => {
+		if (!origin) return false;
+		const urlOrigin = new URL(c.req.url).origin;
+		if (origin === urlOrigin) return true;
+		return normalizeLocalhostOrigin(origin) === normalizeLocalhostOrigin(urlOrigin);
+	});
+
 app.use('/assets/*', serveStatic({ root: './' }));
 app.use('*', flashMiddleware);
 app.use('*', csrfTokenInjection);
-app.use('*', csrf());
+app.use(
+	'*',
+	csrf({
+		origin: csrfOriginHandler,
+	}),
+);
 app.use(
 	'*',
 	z
