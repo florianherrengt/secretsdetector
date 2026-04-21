@@ -1,14 +1,7 @@
 import { z } from 'zod';
 import type { Context, Next } from 'hono';
 import { timingSafeEqual } from './crypto.js';
-
-const isResponse = z
-	.function()
-	.args(z.unknown())
-	.returns(z.boolean())
-	.implement((value) => {
-		return value !== null && typeof value === 'object' && 'status' in value && 'headers' in value;
-	}) as (value: unknown) => value is Response;
+import { isResponse } from './middleware.js';
 
 const parseBasicHeader = z
 	.function()

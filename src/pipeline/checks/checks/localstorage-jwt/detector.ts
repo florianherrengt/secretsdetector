@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ScriptDetection } from '../../shared/detection.js';
+import { isLikelyJwt } from '../../shared/jwt.js';
 
 const TOKEN_KEYS: readonly string[] = [
 	'token',
@@ -57,28 +58,6 @@ const extractToken = z
 		return { text: trimmed, isLiteral: false };
 	});
 
-const isJwtLiteral = z
-	.function()
-	.args(z.string())
-	.returns(z.boolean())
-	.implement((value) => {
-		if (!value.startsWith('eyJ')) {
-			return false;
-		}
-
-		const segments = value.split('.');
-
-		if (segments.length !== 3) {
-			return false;
-		}
-
-		if (segments[0].length < 10 || segments[1].length < 10 || segments[2].length < 16) {
-			return false;
-		}
-
-		return true;
-	});
-
 const extractIdentifierCandidates = z
 	.function()
 	.args(z.string())
@@ -116,7 +95,7 @@ const matchesRule = z
 			return true;
 		}
 
-		if (valueIsLiteral && isJwtLiteral(rawValueText)) {
+		if (valueIsLiteral && isLikelyJwt(rawValueText)) {
 			return true;
 		}
 
@@ -136,7 +115,7 @@ const getValueType = z
 	.args(z.string(), z.boolean())
 	.returns(z.string())
 	.implement((rawValueText, valueIsLiteral) => {
-		if (valueIsLiteral && isJwtLiteral(rawValueText)) {
+		if (valueIsLiteral && isLikelyJwt(rawValueText)) {
 			return 'jwt-literal';
 		}
 

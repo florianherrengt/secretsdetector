@@ -7,6 +7,7 @@ import { render } from '../../../lib/response.js';
 import { AuthRequestPage } from '../../../views/pages/authRequest.js';
 import { validateCsrfToken } from '../../csrf/validateCsrf.js';
 import { csrfTokenStore } from '../../csrf/csrfTokenStore.js';
+import { CLEAR_SESSION_COOKIE } from '../../config.js';
 
 const app = new Hono();
 
@@ -108,7 +109,7 @@ app.post(
 					status: 302,
 					headers: {
 						Location: '/',
-						'Set-Cookie': 'session_id=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0',
+						'Set-Cookie': CLEAR_SESSION_COOKIE,
 					},
 				});
 			}
@@ -117,7 +118,7 @@ app.post(
 				{ success: true },
 				{
 					headers: {
-						'Set-Cookie': 'session_id=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0',
+						'Set-Cookie': CLEAR_SESSION_COOKIE,
 					},
 				},
 			);

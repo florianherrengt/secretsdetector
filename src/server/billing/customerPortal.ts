@@ -4,9 +4,9 @@ import Stripe from 'stripe';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { users } from '../db/schema.js';
+import { getAppBaseUrl } from '../config.js';
 
 const stripeSecretKeySchema = z.string().min(1);
-const appDomainSchema = z.string().min(1);
 
 const stripeBillingPortalCreateAttemptsSchema = z.coerce.number().int().catch(2);
 
@@ -17,17 +17,6 @@ const getStripeClient = z
 	.implement(() => {
 		const apiKey = stripeSecretKeySchema.parse(process.env.STRIPE_SECRET_KEY);
 		return new Stripe(apiKey);
-	});
-
-const getAppBaseUrl = z
-	.function()
-	.args()
-	.returns(z.string().url())
-	.implement(() => {
-		const raw = (process.env.DOMAIN ?? '').trim();
-		const domain = appDomainSchema.parse(raw.length > 0 ? raw : 'localhost:3000');
-		const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-		return `${protocol}://${domain}`;
 	});
 
 const getStripeBillingPortalCreateAttempts = z

@@ -17,6 +17,12 @@ export const sourceListItemSchema = z.object({
 
 export type SourceListItem = z.infer<typeof sourceListItemSchema>;
 
+export const toSourceListItem = z
+	.function()
+	.args(z.object({ key: z.string(), label: z.string(), description: z.string() }))
+	.returns(sourceListItemSchema)
+	.implement((s) => sourceListItemSchema.parse(s));
+
 export const sourceInputPagePropsSchema = z.object({
 	sources: z.array(sourceListItemSchema),
 	selectedSourceKey: z.string().optional(),

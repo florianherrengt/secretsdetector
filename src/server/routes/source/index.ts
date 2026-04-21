@@ -8,7 +8,7 @@ import {
 	previewSource,
 	runSourcePipeline,
 } from '../../../pipeline/sources/index.js';
-import { sourceListItemSchema } from '../../../views/pages/source.js';
+import { toSourceListItem } from '../../../views/pages/source.js';
 import {
 	sourceInputPagePropsSchema,
 	SourceInputPage,
@@ -29,12 +29,6 @@ const sourceQuerySchema = z.object({
 const sourcePostSchema = z.object({
 	source: z.string().min(1),
 });
-
-const toSourceListItem = z
-	.function()
-	.args(z.object({ key: z.string(), label: z.string(), description: z.string() }))
-	.returns(sourceListItemSchema)
-	.implement((s) => sourceListItemSchema.parse(s));
 
 sourceRoutes.get(
 	'/',

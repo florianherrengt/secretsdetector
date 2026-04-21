@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { hasNegativeContext, hasPositiveContext } from '../../shared/context.js';
 import type { ScriptDetection } from '../../shared/detection.js';
 import { hasGenericTokenEntropy } from '../../shared/entropy.js';
+import { isLikelyJwt } from '../../shared/jwt.js';
 
 const isAllowlistedValue = z
 	.function()
@@ -27,28 +28,6 @@ const isAllowlistedValue = z
 		}
 
 		return false;
-	});
-
-const isLikelyJwt = z
-	.function()
-	.args(z.string())
-	.returns(z.boolean())
-	.implement((value) => {
-		if (!value.startsWith('eyJ')) {
-			return false;
-		}
-
-		const segments = value.split('.');
-
-		if (segments.length !== 3) {
-			return false;
-		}
-
-		if (segments[0].length < 10 || segments[1].length < 10 || segments[2].length < 16) {
-			return false;
-		}
-
-		return true;
 	});
 
 export const findGenericSecretDetections = z

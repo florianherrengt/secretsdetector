@@ -9,6 +9,7 @@ import {
 	qualifyInputPagePropsSchema,
 	qualifyResultPagePropsSchema,
 } from '../../../views/pages/qualify.js';
+import { normalizeSubmittedDomain } from '../../scan/scanJob.js';
 
 const qualifyRoutes = new Hono();
 
@@ -19,33 +20,6 @@ const qualifyFormSchema = z.object({
 const qualifyQuerySchema = z.object({
 	domain: z.string().optional(),
 });
-
-const normalizeSubmittedDomain = z
-	.function()
-	.args(z.string())
-	.returns(z.string().min(1))
-	.implement((rawDomain) => {
-		const trimmed = rawDomain.trim();
-
-		if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-			const parsedUrl = (() => {
-				try {
-					return new URL(trimmed);
-				} catch {
-					return null;
-				}
-			})();
-
-			if (!parsedUrl) {
-				return trimmed.replace(/^https?:\/\//i, '');
-			}
-
-			const normalizedPath = parsedUrl.pathname === '/' ? '' : parsedUrl.pathname;
-			return `${parsedUrl.host}${normalizedPath}${parsedUrl.search}`;
-		}
-
-		return trimmed;
-	});
 
 qualifyRoutes.get(
 	'/',

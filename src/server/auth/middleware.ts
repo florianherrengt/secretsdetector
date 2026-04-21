@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Context, Next } from 'hono';
 import { getSession } from './index.js';
 
-const isResponse = z
+export const isResponse = z
 	.function()
 	.args(z.unknown())
 	.returns(z.boolean())

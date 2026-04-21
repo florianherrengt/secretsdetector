@@ -13,9 +13,9 @@ import { csrfTokenStore } from '../../csrf/csrfTokenStore.js';
 import { setFlashMessage } from '../../../lib/flash.js';
 import { createBillingPortalSessionForUser } from '../../billing/customerPortal.js';
 import { isStripeConfigured } from '../../billing/config.js';
+import { getAppOrigin, CLEAR_SESSION_COOKIE } from '../../config.js';
 
 const settingsRoutes = new Hono();
-const DEFAULT_APP_ORIGIN = 'http://localhost:3000';
 const DEFAULT_BILLING_PORTAL_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_BILLING_PORTAL_RATE_LIMIT_MAX_REQUESTS = 5;
 const MINIMUM_BILLING_PORTAL_RATE_LIMIT_WINDOW_MS = 1_000;
@@ -73,26 +73,6 @@ export const resetBillingPortalRateLimitStateForTests = z
 	.returns(z.void())
 	.implement(() => {
 		billingPortalRateLimitState.requestTimesByActor.clear();
-	});
-
-const getAppOrigin = z
-	.function()
-	.args()
-	.returns(z.string())
-	.implement(() => {
-		const domain = process.env.DOMAIN?.trim();
-		if (!domain) {
-			return DEFAULT_APP_ORIGIN;
-		}
-
-		const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-		const normalizedDomain = domain.replace(/^https?:\/\//, '');
-
-		try {
-			return new URL(`${protocol}://${normalizedDomain}`).origin;
-		} catch {
-			return DEFAULT_APP_ORIGIN;
-		}
 	});
 
 const hasTrustedRequestOrigin = z
@@ -211,7 +191,7 @@ const handleDeleteAccount = z
 		}
 
 		setFlashMessage(c, 'Your account has been deleted.');
-		c.header('Set-Cookie', 'session_id=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0', {
+		c.header('Set-Cookie', CLEAR_SESSION_COOKIE, {
 			append: true,
 		});
 

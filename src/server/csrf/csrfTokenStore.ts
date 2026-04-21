@@ -1,15 +1,11 @@
 import { z } from 'zod';
-import { ioredisClient } from '../scan/redis.js';
+import { createRedisStore } from '../db/redisStore.js';
 
 const CSRF_TOKEN_KEY_PREFIX = 'csrf_token:';
 
 export const CSRF_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-const csrfTokenKey = z
-	.function()
-	.args(z.string())
-	.returns(z.string())
-	.implement((sessionId) => `${CSRF_TOKEN_KEY_PREFIX}${sessionId}`);
+const store = createRedisStore(CSRF_TOKEN_KEY_PREFIX, {});
 
 export const csrfTokenStore = {
 	set: z
@@ -17,7 +13,7 @@ export const csrfTokenStore = {
 		.args(z.string(), z.string(), z.number().int().positive())
 		.returns(z.promise(z.void()))
 		.implement(async (sessionId, token, ttlSeconds) => {
-			await ioredisClient.set(csrfTokenKey(sessionId), token, 'EX', ttlSeconds);
+			await store.set(sessionId, token, ttlSeconds);
 		}),
 
 	get: z
@@ -25,7 +21,8 @@ export const csrfTokenStore = {
 		.args(z.string())
 		.returns(z.promise(z.nullable(z.string())))
 		.implement(async (sessionId) => {
-			return await ioredisClient.get(csrfTokenKey(sessionId));
+			const result = await store.get(sessionId);
+			return result as string | null;
 		}),
 
 	del: z
@@ -33,16 +30,8 @@ export const csrfTokenStore = {
 		.args(z.string())
 		.returns(z.promise(z.void()))
 		.implement(async (sessionId) => {
-			await ioredisClient.del(csrfTokenKey(sessionId));
+			await store.del(sessionId);
 		}),
 };
 
-export const clearCsrfTokens = z
-	.function()
-	.returns(z.promise(z.void()))
-	.implement(async () => {
-		const keys = await ioredisClient.keys(`${CSRF_TOKEN_KEY_PREFIX}*`);
-		if (keys.length > 0) {
-			await ioredisClient.del(...keys);
-		}
-	});
+export const clearCsrfTokens = store.clearAll;
