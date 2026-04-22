@@ -211,7 +211,7 @@ const buildScanHistoryItems = z
 	});
 
 domainRoutes.get(
-	'/:hostname',
+	'/:hostname{.+}',
 	z
 		.function()
 		.args(z.custom<Context>())

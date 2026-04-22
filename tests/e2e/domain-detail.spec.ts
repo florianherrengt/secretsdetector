@@ -3,6 +3,9 @@ import { createAuthenticatedSession } from './support/auth';
 
 const UNIQUE = () => `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
+const domain = process.env.DOMAIN ?? '127.0.0.1:3000';
+const selfHost = domain.includes('://') ? new URL(domain).host : domain;
+
 const addDomain = async (
 	request: import('@playwright/test').APIRequestContext,
 	authHeaders: Record<string, string>,
@@ -14,6 +17,7 @@ const addDomain = async (
 			'content-type': 'application/x-www-form-urlencoded',
 		},
 		form: { domain: hostname },
+		maxRedirects: 0,
 	});
 	expect(response.status()).toBe(302);
 };
@@ -106,21 +110,19 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		request,
 		authHeaders,
 	}) => {
-		const hostname = 'localhost:3000';
-		await addDomainAndScan(authedPage, request, authHeaders, hostname);
+		await addDomainAndScan(authedPage, request, authHeaders, selfHost);
 
-		await authedPage.goto(`/domains/${hostname}`);
-		await expect(authedPage.locator('h1')).toContainText(hostname);
+		await authedPage.goto(`/domains/${selfHost}`);
+		await expect(authedPage.locator('h1')).toContainText(selfHost);
 
 		const scanLink = authedPage.locator('a[href^="/scan/"]').first();
 		await expect(scanLink).toBeVisible();
 	});
 
 	test('scan row displays status badge and date', async ({ authedPage, request, authHeaders }) => {
-		const hostname = 'localhost:3000';
-		await addDomainAndScan(authedPage, request, authHeaders, hostname);
+		await addDomainAndScan(authedPage, request, authHeaders, selfHost);
 
-		await authedPage.goto(`/domains/${hostname}`);
+		await authedPage.goto(`/domains/${selfHost}`);
 
 		const scanLink = authedPage.locator('a[href^="/scan/"]').first();
 		await expect(scanLink).toBeVisible();
@@ -137,11 +139,10 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		request,
 		authHeaders,
 	}) => {
-		const hostname = `scan-from-detail-${UNIQUE()}.com`;
-		await addDomain(request, authHeaders, hostname);
+		await addDomain(request, authHeaders, selfHost);
 
 		const page = authedPage;
-		await page.goto(`/domains/${hostname}`);
+		await page.goto(`/domains/${selfHost}`);
 
 		await page.getByRole('button', { name: 'Scan now' }).click();
 		await page.waitForURL(/\/scan\/[0-9a-f-]{36}$/, { timeout: 30_000 });
@@ -153,10 +154,9 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		request,
 		authHeaders,
 	}) => {
-		const hostname = 'localhost:3000';
-		await addDomainAndScan(authedPage, request, authHeaders, hostname);
+		await addDomainAndScan(authedPage, request, authHeaders, selfHost);
 
-		await authedPage.goto(`/domains/${hostname}`);
+		await authedPage.goto(`/domains/${selfHost}`);
 
 		const scanLink = authedPage.locator('a[href^="/scan/"]').first();
 		await expect(scanLink).toBeVisible();
@@ -188,7 +188,7 @@ test.describe('Domain list: modified for domain detail links', () => {
 		const page = authedPage;
 		await page.goto('/domains');
 
-		const link = page.getByRole('link', { name: hostname, exact: true });
+		const link = page.locator('a[href*="/domains/"]').filter({ hasText: hostname });
 		await expect(link).toBeVisible();
 		await expect(link).toHaveAttribute('href', `/domains/${hostname}`);
 	});
@@ -207,7 +207,7 @@ test.describe('Domain list: modified for domain detail links', () => {
 		const row = page.locator('li').filter({ hasText: hostname });
 		await expect(row).toBeVisible();
 
-		await expect(row.getByRole('link', { name: hostname, exact: true })).toBeVisible();
+		await expect(row.locator('a[href*="/domains/"]').filter({ hasText: hostname })).toBeVisible();
 
 		await expect(row.getByRole('link', { name: 'Delete' })).toHaveCount(0);
 		await expect(row.getByText('Delete')).toHaveCount(0);
@@ -246,7 +246,7 @@ test.describe('Domain list: modified for domain detail links', () => {
 		const page = authedPage;
 		await page.goto('/domains');
 
-		await page.getByRole('link', { name: hostname, exact: true }).click();
+		await page.locator('a[href*="/domains/"]').filter({ hasText: hostname }).click();
 		await page.waitForURL(`/domains/${hostname}`);
 
 		await expect(page.locator('h1')).toContainText(hostname);
@@ -318,7 +318,9 @@ test.describe('Domain detail: domains with path/query characters', () => {
 		const input = `https://path-${UNIQUE()}.com/some/path`;
 		await addDomain(request, authHeaders, input);
 
-		const normalizedDomain = `path-${input.split('//')[1]}`;
+		const url = new URL(input);
+		const normalizedDomain = `${url.host}${url.pathname}`;
+
 		const encoded = encodeURIComponent(normalizedDomain);
 
 		const response = await request.get(`/domains/${encoded}`, { headers: authHeaders });
@@ -334,13 +336,15 @@ test.describe('Domain detail: domains with path/query characters', () => {
 		const input = `https://query-${UNIQUE()}.com?x=1&y=2`;
 		await addDomain(request, authHeaders, input);
 
-		const normalizedDomain = input.replace('https://', '');
+		const url = new URL(input);
+		const normalizedDomain = `${url.host}${url.search}`;
+
 		const encoded = encodeURIComponent(normalizedDomain);
 
 		const response = await request.get(`/domains/${encoded}`, { headers: authHeaders });
 		expect(response.status()).toBe(200);
 		const html = await response.text();
-		expect(html).toContain(normalizedDomain);
+		expect(html).toContain(normalizedDomain.replace(/&/g, '&amp;'));
 	});
 
 	test('domain list uses encoded href for domains with path', async ({ request, authHeaders }) => {
