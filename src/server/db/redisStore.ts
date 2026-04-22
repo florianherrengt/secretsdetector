@@ -10,6 +10,7 @@ export const createRedisStore = z
 			get: z.custom(),
 			del: z.custom(),
 			clearAll: z.custom(),
+			createIfMissing: z.custom(),
 		}),
 	)
 	.implement((prefix, options) => {
@@ -55,5 +56,17 @@ export const createRedisStore = z
 				}
 			});
 
-		return { set, get, del, clearAll };
+		const createIfMissing = z
+			.function()
+			.args(z.string(), z.string(), z.number().int().positive())
+			.returns(z.promise(z.nullable(z.string())))
+			.implement(async (id, value, ttlSeconds) => {
+				const stored = shouldSerialize ? JSON.stringify(value) : String(value);
+				const result = await (
+					ioredisClient as unknown as { set: (...args: unknown[]) => Promise<string | null> }
+				).set(`${prefix}${id}`, stored, 'NX', 'EX', ttlSeconds);
+				return result === 'OK' ? value : null;
+			});
+
+		return { set, get, del, clearAll, createIfMissing };
 	});

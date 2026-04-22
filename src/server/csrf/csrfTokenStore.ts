@@ -32,6 +32,14 @@ export const csrfTokenStore = {
 		.implement(async (sessionId) => {
 			await store.del(sessionId);
 		}),
+
+	createIfMissing: z
+		.function()
+		.args(z.string(), z.string(), z.number().int().positive())
+		.returns(z.promise(z.nullable(z.string())))
+		.implement(async (sessionId, token, ttlSeconds) => {
+			return await store.createIfMissing(sessionId, token, ttlSeconds);
+		}),
 };
 
 export const clearCsrfTokens = store.clearAll;

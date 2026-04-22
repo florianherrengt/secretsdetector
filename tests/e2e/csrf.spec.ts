@@ -70,4 +70,13 @@ test.describe('CSRF Protection', () => {
 		expect(response.status()).toBe(302);
 		expect(response.headers()['location']).toMatch(/^\/scan\/[a-f0-9-]+$/);
 	});
+
+	test('invalid session cookie does not produce CSRF token', async ({ request }) => {
+		const response = await request.get('/domains', {
+			headers: { Cookie: 'session_id=fake-session-id' },
+		});
+		const html = await response.text();
+
+		expect(html).not.toMatch(/name="_csrf"/);
+	});
 });

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 export const generateToken = z
@@ -14,12 +14,15 @@ export const timingSafeEqual = z
 	.args(z.string(), z.string())
 	.returns(z.boolean())
 	.implement((a, b) => {
-		const bufA = new TextEncoder().encode(a);
-		const bufB = new TextEncoder().encode(b);
-		if (bufA.length !== bufB.length) {
+		const bufA = Buffer.from(a, 'utf-8');
+		const bufB = Buffer.from(b, 'utf-8');
+		if (bufA.length === 0 || bufB.length === 0) return false;
+		if (bufA.length !== bufB.length) return false;
+		try {
+			return nodeTimingSafeEqual(bufA, bufB);
+		} catch {
 			return false;
 		}
-		return bufA.every((byte, i) => byte === bufB[i]) && bufA.length > 0;
 	});
 
 export const hashToken = z
