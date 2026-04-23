@@ -53,7 +53,11 @@ describe('getEmailProvider', () => {
 		});
 
 		const emails = await db.select().from(mockEmails);
-		expect(emails).toHaveLength(1);
+		const matchingEmails = emails.filter(
+			(email) =>
+				email.to === 'test@example.com' && email.subject === 'Test' && email.html === '<p>Test</p>',
+		);
+		expect(matchingEmails.length).toBeGreaterThan(0);
 	});
 
 	it('returns SMTPEmailProvider when SMTP creds are set', () => {

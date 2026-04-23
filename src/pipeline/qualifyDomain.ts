@@ -86,7 +86,7 @@ const normalizeQualificationTarget = z
 			return null;
 		}
 
-		const parsed = (() => {
+		const targetUrl = (() => {
 			try {
 				return new URL(`https://${input}`);
 			} catch {
@@ -94,11 +94,9 @@ const normalizeQualificationTarget = z
 			}
 		})();
 
-		if (!parsed) {
+		if (!targetUrl) {
 			return null;
 		}
-
-		const targetUrl = parsed;
 
 		const normalizedHostname = targetUrl.hostname.toLowerCase();
 

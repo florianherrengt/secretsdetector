@@ -52,17 +52,13 @@ test.describe('home page', () => {
 		await expect(page.getByRole('link', { name: 'Sign up' })).toHaveCount(0);
 	});
 
-	test('shows go to app button when logged in', async ({ authedPage }) => {
-		const page = authedPage;
-
+	test('shows go to app button when logged in', async ({ authedPage: page }) => {
 		await page.goto('/');
 
 		await expect(page.getByRole('link', { name: 'Go to app' })).toBeVisible();
 	});
 
-	test('manual scan submits domain and reaches scan result', async ({ authedPage }) => {
-		const page = authedPage;
-
+	test('manual scan submits domain and reaches scan result', async ({ authedPage: page }) => {
 		await page.goto('/');
 		await page.getByPlaceholder('Enter any URL to scan').fill('localhost:3000/sandbox/demo');
 		await page.getByRole('button', { name: 'Scan now' }).click();
@@ -76,10 +72,8 @@ test.describe('home page', () => {
 	});
 
 	test('scan result shows discovered subdomains section with empty state', async ({
-		authedPage,
+		authedPage: page,
 	}) => {
-		const page = authedPage;
-
 		await page.goto('/');
 		await page.getByPlaceholder('Enter any URL to scan').fill('localhost:3000/sandbox/demo');
 		await page.getByRole('button', { name: 'Scan now' }).click();
@@ -91,10 +85,8 @@ test.describe('home page', () => {
 	});
 
 	test('scan result shows discovered subdomains when discovery is enabled', async ({
-		authedPage,
+		authedPage: page,
 	}) => {
-		const page = authedPage;
-
 		await page.goto('/');
 		await page.getByPlaceholder('Enter any URL to scan').fill('app.localhost:3000/sandbox/demo');
 		await page.getByRole('button', { name: 'Scan now' }).click();

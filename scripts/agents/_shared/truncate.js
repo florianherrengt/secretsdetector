@@ -2,7 +2,7 @@ const MAX_ERRORS = 3;
 const MAX_MESSAGE_LENGTH = 200;
 
 const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]/g;
-const STACK_TRACE_RE = /\n\s+at\s+.*/s;
+const STACK_TRACE_RE = /\r?\n\s+at\s+[^\n]*/;
 
 export function stripAnsi(str) {
 	return str.replace(ANSI_RE, '');

@@ -12,7 +12,7 @@ export default ESLintUtils.RuleCreator(() => '')({
 		schema: [],
 		messages: {
 			noMutable:
-				"Variables must be immutable ('const'). If mutation is intentional and necessary, disable this rule for that line.",
+				"Are you sure this must be mutable? If yes, disable this rule for this line with a short reason, but first verify there isn't a better immutable approach because this is usually a code smell.",
 		},
 	},
 	defaultOptions: [],

@@ -51,7 +51,7 @@ const iconPaths: Record<IconName, Record<string, string>> = {
 
 export type { IconName };
 
-export const icons = iconPaths;
+export { iconPaths as icons };
 
 export const Icon: FC<IconProps> = z
 	.function()

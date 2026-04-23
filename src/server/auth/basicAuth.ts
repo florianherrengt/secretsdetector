@@ -8,7 +8,7 @@ const parseBasicHeader = z
 	.args(z.string())
 	.returns(z.nullable(z.tuple([z.string(), z.string()])))
 	.implement((header) => {
-		const match = header.match(/^Basic\s+(.+)$/i);
+		const match = header.match(/^Basic[\t ]+([A-Za-z0-9+/=]+)$/i);
 		if (!match) return null;
 		try {
 			const decoded = atob(match[1]);

@@ -20,7 +20,7 @@ function parseTscOutput(output) {
 
 	const lines = stripAnsi(output).split('\n');
 	for (const line of lines) {
-		const match = line.match(/^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.*)$/);
+		const match = line.match(/^([^\n(]+)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/);
 		if (match) {
 			errorCount++;
 			errors.push(buildError(`${match[4]}: ${match[5]}`, match[1], Number(match[2])));

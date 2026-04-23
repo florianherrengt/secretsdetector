@@ -131,7 +131,7 @@ const normalizeScanTarget = z
 			return null;
 		}
 
-		const parsed = (() => {
+		const targetUrl = (() => {
 			try {
 				return new URL(`https://${input}`);
 			} catch {
@@ -139,11 +139,9 @@ const normalizeScanTarget = z
 			}
 		})();
 
-		if (!parsed) {
+		if (!targetUrl) {
 			return null;
 		}
-
-		const targetUrl = parsed;
 		const normalizedHostname = targetUrl.hostname.toLowerCase();
 
 		if (!isValidHostname(normalizedHostname)) {
@@ -444,19 +442,26 @@ const extractScriptUrls = z
 	.returns(z.array(z.string().url()))
 	.implement((html, homepageUrl) => {
 		const sourceUrl = new URL(homepageUrl);
-		const scriptUrlRegex =
-			/<script\b[^>]*\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))[^>]*>/gi;
+		const scriptTagRegex = /<script\b([^>]*)>/gi;
+		const scriptSrcRegex = /\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s"'=<>`]+))/i;
 		const scriptUrls: string[] = [];
 		const seen = new Set<string>();
 
 		while (true) {
-			const match = scriptUrlRegex.exec(html);
+			const match = scriptTagRegex.exec(html);
 
 			if (match === null) {
 				break;
 			}
 
-			const src = (match[1] ?? match[2] ?? match[3] ?? '').trim();
+			const attributes = match[1] ?? '';
+			const srcMatch = scriptSrcRegex.exec(attributes);
+
+			if (srcMatch === null) {
+				continue;
+			}
+
+			const src = (srcMatch[1] ?? srcMatch[2] ?? srcMatch[3] ?? '').trim();
 
 			if (src.length === 0) {
 				continue;

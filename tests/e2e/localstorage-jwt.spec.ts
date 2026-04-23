@@ -18,9 +18,9 @@ const waitForScanCompletion = async (page: Page) => {
 };
 
 test.describe('localStorage JWT detection', () => {
-	test('flags token key in large bundle fixture from home scan flow', async ({ authedPage }) => {
-		const page = authedPage;
-
+	test('flags token key in large bundle fixture from home scan flow', async ({
+		authedPage: page,
+	}) => {
 		await page.goto('/');
 		await page.getByPlaceholder('Enter any URL to scan').fill('localhost:3000/sandbox/demo/large');
 		await page.getByRole('button', { name: 'Scan now' }).click();

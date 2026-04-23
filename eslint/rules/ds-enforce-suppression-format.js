@@ -1,6 +1,12 @@
 import { ESLintUtils } from '@typescript-eslint/utils';
 import { getPolicy, isFrontendFile } from './utils/design-system.js';
 
+// Enforces strict suppression hygiene for design-system rules:
+// - disallows broad/unsafe directives (eslint-disable, eslint-disable-line, @ts-ignore)
+// - allows only eslint-disable-next-line for custom/ds-* rules
+// - requires a ticketed justification in the policy format
+// This keeps suppressions local, auditable, and intentionally documented.
+
 function includesDesignSystemRule(value, rulePrefix) {
 	return value
 		.split(',')

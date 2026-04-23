@@ -136,13 +136,11 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 	});
 
 	test('scan now from detail page triggers scan and redirects', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		await addDomain(request, authHeaders, selfHost);
-
-		const page = authedPage;
 		await page.goto(`/domains/${selfHost}`);
 
 		await page.getByRole('button', { name: 'Scan now' }).click();
@@ -179,14 +177,12 @@ test.describe('Domain list: modified for domain detail links', () => {
 	});
 
 	test('domain name link is rendered as anchor in browser', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		const hostname = `anchor-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto('/domains');
 
 		const link = page.locator('a[href*="/domains/"]').filter({ hasText: hostname });
@@ -195,14 +191,12 @@ test.describe('Domain list: modified for domain detail links', () => {
 	});
 
 	test('each domain row has only domain link — no delete', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		const hostname = `row-layout-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto('/domains');
 
 		const row = page.locator('li').filter({ hasText: hostname });
@@ -214,11 +208,13 @@ test.describe('Domain list: modified for domain detail links', () => {
 		await expect(row.getByText('Delete')).toHaveCount(0);
 	});
 
-	test('full row area is clickable via link', async ({ authedPage, request, authHeaders }) => {
+	test('full row area is clickable via link', async ({
+		authedPage: page,
+		request,
+		authHeaders,
+	}) => {
 		const hostname = `full-row-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto('/domains');
 
 		const row = page.locator('li').filter({ hasText: hostname });
@@ -237,14 +233,12 @@ test.describe('Domain list: modified for domain detail links', () => {
 	});
 
 	test('clicking domain name navigates to detail page in browser', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		const hostname = `nav-click-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto('/domains');
 
 		await page.locator('a[href*="/domains/"]').filter({ hasText: hostname }).click();
@@ -256,14 +250,12 @@ test.describe('Domain list: modified for domain detail links', () => {
 
 test.describe('Domain detail: delete flow', () => {
 	test('delete confirmation cancel returns to detail page', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		const hostname = `cancel-del-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto(`/domains/${hostname}`);
 
 		const deleteLink = page.getByRole('link', { name: 'Delete' });
@@ -278,14 +270,12 @@ test.describe('Domain detail: delete flow', () => {
 	});
 
 	test('delete confirmation succeeds and redirects to domain list', async ({
-		authedPage,
+		authedPage: page,
 		request,
 		authHeaders,
 	}) => {
 		const hostname = `confirm-del-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
-
-		const page = authedPage;
 		await page.goto(`/domains/${hostname}`);
 
 		await page.getByRole('link', { name: 'Delete' }).click();
@@ -360,14 +350,17 @@ test.describe('Domain detail: domains with path/query characters', () => {
 		expect(html).toContain(`href="/domains/${encoded}"`);
 	});
 
-	test('delete flow works for domain with path', async ({ authedPage, request, authHeaders }) => {
+	test('delete flow works for domain with path', async ({
+		authedPage: page,
+		request,
+		authHeaders,
+	}) => {
 		const input = `https://del-path-${UNIQUE()}.com/api`;
 		await addDomain(request, authHeaders, input);
 
 		const normalizedDomain = input.replace('https://', '');
 		const encoded = encodeURIComponent(normalizedDomain);
 
-		const page = authedPage;
 		await page.goto(`/domains/${encoded}`);
 
 		await expect(page.locator('h1')).toContainText(normalizedDomain);

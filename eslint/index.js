@@ -1,5 +1,6 @@
 import noRawFunctions from './rules/no-raw-functions.js';
 import noMutableVariables from './rules/no-mutable-variables.js';
+import noUnnecessaryConstAlias from './rules/no-unnecessary-const-alias.js';
 import dsNoRawHtmlElements from './rules/ds-no-raw-html-elements.js';
 import dsNoInlineStyleProp from './rules/ds-no-inline-style-prop.js';
 import dsNoArbitraryTailwindValues from './rules/ds-no-arbitrary-tailwind-values.js';
@@ -12,6 +13,7 @@ import dsNoInlineScripts from './rules/ds-no-inline-scripts.js';
 export const rules = {
 	'no-raw-functions': noRawFunctions,
 	'no-mutable-variables': noMutableVariables,
+	'no-unnecessary-const-alias': noUnnecessaryConstAlias,
 	'ds-no-raw-html-elements': dsNoRawHtmlElements,
 	'ds-no-inline-style-prop': dsNoInlineStyleProp,
 	'ds-no-arbitrary-tailwind-values': dsNoArbitraryTailwindValues,

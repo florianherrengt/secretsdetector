@@ -1,6 +1,12 @@
 import { ESLintUtils } from '@typescript-eslint/utils';
 import { getPolicy, isFrontendFile } from './utils/design-system.js';
 
+// Enforces design-system boundaries for JSX HTML usage:
+// - allows only raw tags explicitly approved by policy
+// - blocks tags explicitly forbidden by policy
+// - preserves a narrow exception for <link> nested under <head>
+// This keeps markup aligned with sanctioned primitives and component patterns.
+
 const isWithinHeadElement = (node) => {
 	let current = node.parent;
 

@@ -17,9 +17,7 @@ const waitForScanCompletion = async (page: import('@playwright/test').Page) => {
 };
 
 test.describe('scan result timestamps', () => {
-	test('renders <time> elements with ISO datetime on scan result', async ({ authedPage }) => {
-		const page = authedPage;
-
+	test('renders <time> elements with ISO datetime on scan result', async ({ authedPage: page }) => {
 		await page.goto('/');
 
 		await page.getByPlaceholder('Enter any URL to scan').fill('localhost:3000/sandbox/demo');

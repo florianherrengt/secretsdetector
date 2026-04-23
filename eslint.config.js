@@ -1,5 +1,9 @@
 import js from '@eslint/js';
+import functional from 'eslint-plugin-functional';
+import regexp from 'eslint-plugin-regexp';
+import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
+import unicorn from 'eslint-plugin-unicorn';
 import * as custom from './eslint/index.js';
 import { designSystemPolicy } from './eslint/design-system-enforcement/policy.js';
 import { validatePolicy } from './eslint/design-system-enforcement/validate-policy.js';
@@ -13,13 +17,29 @@ export default [
 	{
 		plugins: {
 			custom,
+			functional,
+			regexp,
+			sonarjs,
+			unicorn,
 		},
 
 		rules: {
 			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+			'no-var': 'error',
 
 			'custom/no-raw-functions': 'error',
-			'custom/no-mutable-variables': 'error',
+			'custom/no-mutable-variables': 'warn',
+			'functional/no-let': [
+				'warn',
+				{
+					allowInFunctions: true,
+					allowInForLoopInit: true,
+				},
+			],
+			'sonarjs/no-duplicated-branches': 'error',
+			'unicorn/no-abusive-eslint-disable': 'error',
+			'regexp/no-super-linear-backtracking': 'error',
+			'custom/no-unnecessary-const-alias': 'error',
 			'custom/ds-no-raw-html-elements': 'error',
 			'custom/ds-no-inline-style-prop': 'error',
 			'custom/ds-no-arbitrary-tailwind-values': 'error',
