@@ -20,6 +20,7 @@ import {
 	isPrivateIp,
 	type DiscoveryOutput,
 } from './discovery.js';
+import { safeNewUrl } from './url.js';
 
 export const ScanDomainInput = z.object({
 	domain: z.string(),
@@ -131,13 +132,7 @@ const normalizeScanTarget = z
 			return null;
 		}
 
-		const targetUrl = (() => {
-			try {
-				return new URL(`https://${input}`);
-			} catch {
-				return null;
-			}
-		})();
+		const targetUrl = safeNewUrl(`https://${input}`);
 
 		if (!targetUrl) {
 			return null;

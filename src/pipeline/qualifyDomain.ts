@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { safeNewUrl } from './url.js';
 
 export const QualifyDomainInput = z.object({
 	domain: z.string(),
@@ -86,13 +87,7 @@ const normalizeQualificationTarget = z
 			return null;
 		}
 
-		const targetUrl = (() => {
-			try {
-				return new URL(`https://${input}`);
-			} catch {
-				return null;
-			}
-		})();
+		const targetUrl = safeNewUrl(`https://${input}`);
 
 		if (!targetUrl) {
 			return null;
