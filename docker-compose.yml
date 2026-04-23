@@ -1,30 +1,30 @@
 services:
   postgres:
     image: postgres:17.2-alpine
-    container_name: secrets-watch-postgres
+    container_name: ${PG_CONTAINER_NAME:-secrets-watch-postgres}
     restart: unless-stopped
     environment:
-      POSTGRES_DB: secrets_watch
+      POSTGRES_DB: ${PG_DB_NAME:-secrets_watch}
       POSTGRES_USER: secrets_watch
       POSTGRES_PASSWORD: secrets_watch
     ports:
-      - '5432:5432'
+      - '${PG_PORT:-5432}:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${PG_DATA_PATH:-postgres_data}:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U secrets_watch -d secrets_watch']
+      test: ['CMD-SHELL', 'pg_isready -U secrets_watch -d ${PG_DB_NAME:-secrets_watch}']
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7.2-alpine
-    container_name: secrets-watch-redis
+    container_name: ${REDIS_CONTAINER_NAME:-secrets-watch-redis}
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
-      - redis_data:/data
+      - ${REDIS_DATA_PATH:-redis_data}:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
