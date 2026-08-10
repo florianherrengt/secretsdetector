@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../scan/scanJob.js', () => ({
-	createScanForDomainId: vi.fn(),
+	enqueueBackgroundScanForDomainId: vi.fn(),
 	scanQueueJobDataSchema: z.object({ domainId: z.string().uuid() }),
 }));
 
@@ -12,7 +12,7 @@ vi.mock('../db/client.js', () => ({
 	},
 }));
 
-import { createScanForDomainId } from '../scan/scanJob.js';
+import { enqueueBackgroundScanForDomainId } from '../scan/scanJob.js';
 import { dispatchScans } from './dispatchScans.js';
 import { db } from '../db/client.js';
 
@@ -21,8 +21,8 @@ const defaultMocks = z
 	.args()
 	.returns(z.void())
 	.implement(() => {
-		vi.mocked(createScanForDomainId).mockResolvedValue({
-			scanId: '10000000-0000-4000-8000-000000000001',
+		vi.mocked(enqueueBackgroundScanForDomainId).mockResolvedValue({
+			jobId: '10000000-0000-4000-8000-000000000001',
 		});
 	});
 
@@ -41,10 +41,10 @@ describe('dispatchScans', () => {
 
 		await dispatchScans();
 
-		expect(createScanForDomainId).not.toHaveBeenCalled();
+		expect(enqueueBackgroundScanForDomainId).not.toHaveBeenCalled();
 	});
 
-	it('calls createScanForDomainId exactly once per domain', async () => {
+	it('calls enqueueBackgroundScanForDomainId exactly once per domain', async () => {
 		const domainIds = [
 			{ id: '00000000-0000-4000-8000-aaaaaaaaaaaa' },
 			{ id: '00000000-0000-4000-8000-bbbbbbbbbbbb' },
@@ -58,10 +58,16 @@ describe('dispatchScans', () => {
 
 		await dispatchScans();
 
-		expect(createScanForDomainId).toHaveBeenCalledTimes(3);
-		expect(createScanForDomainId).toHaveBeenCalledWith('00000000-0000-4000-8000-aaaaaaaaaaaa');
-		expect(createScanForDomainId).toHaveBeenCalledWith('00000000-0000-4000-8000-bbbbbbbbbbbb');
-		expect(createScanForDomainId).toHaveBeenCalledWith('00000000-0000-4000-8000-cccccccccccc');
+		expect(enqueueBackgroundScanForDomainId).toHaveBeenCalledTimes(3);
+		expect(enqueueBackgroundScanForDomainId).toHaveBeenCalledWith(
+			'00000000-0000-4000-8000-aaaaaaaaaaaa',
+		);
+		expect(enqueueBackgroundScanForDomainId).toHaveBeenCalledWith(
+			'00000000-0000-4000-8000-bbbbbbbbbbbb',
+		);
+		expect(enqueueBackgroundScanForDomainId).toHaveBeenCalledWith(
+			'00000000-0000-4000-8000-cccccccccccc',
+		);
 	});
 
 	it('continues dispatching remaining domains when one fails', async () => {
@@ -74,12 +80,12 @@ describe('dispatchScans', () => {
 				orderBy: vi.fn().mockResolvedValue(domainIds),
 			}),
 		});
-		vi.mocked(createScanForDomainId)
+		vi.mocked(enqueueBackgroundScanForDomainId)
 			.mockRejectedValueOnce(new Error('DB error'))
-			.mockResolvedValueOnce({ scanId: '10000000-0000-4000-8000-000000000001' });
+			.mockResolvedValueOnce({ jobId: '10000000-0000-4000-8000-000000000001' });
 
 		await dispatchScans();
 
-		expect(createScanForDomainId).toHaveBeenCalledTimes(2);
+		expect(enqueueBackgroundScanForDomainId).toHaveBeenCalledTimes(2);
 	});
 });

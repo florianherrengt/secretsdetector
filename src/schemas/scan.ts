@@ -16,6 +16,7 @@ export const scanSchema = z.object({
 	status: scanStatusSchema,
 	startedAt: z.date(),
 	finishedAt: z.date().nullable(),
+	resultHash: z.string().nullable().optional(),
 	discoveryMetadata: z
 		.object({
 			discoveredSubdomains: z.array(z.string()),

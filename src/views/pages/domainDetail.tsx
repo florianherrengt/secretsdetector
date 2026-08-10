@@ -8,7 +8,7 @@ import { StatusBadge } from '../components/StatusBadge.js';
 import { Layout } from '../layout.js';
 import { formatDurationMs } from './scanResult.js';
 
-export const scanHistoryItemSchema = z.object({
+export const currentScanResultSchema = z.object({
 	scanId: z.string().uuid(),
 	status: z.enum(['pending', 'success', 'failed']),
 	startedAtIso: z.string(),
@@ -18,7 +18,7 @@ export const scanHistoryItemSchema = z.object({
 
 export const domainDetailPagePropsSchema = z.object({
 	hostname: z.string().min(1),
-	scans: z.array(scanHistoryItemSchema),
+	currentScan: currentScanResultSchema.nullable(),
 	deleteConfirmHref: z.string().min(1),
 });
 
@@ -72,40 +72,32 @@ export const DomainDetailPage: FC<DomainDetailPageProps> = z
 				<div class="space-y-8">
 					<PageHeader title={props.hostname} action={headerActions} />
 
-					<Section title="Scan History" description="Previous security scans for this domain.">
-						{props.scans.length === 0 ? (
+					<Section title="Scan Result" description="Current security scan result for this domain.">
+						{props.currentScan === null ? (
 							<EmptyStateCard
-								title="No scans yet"
+								title="No scan yet"
 								description="This domain has not been scanned."
 								actionHint="Use Scan now to run the first check."
 							/>
 						) : (
 							<ScanCard>
-								<ul class="space-y-2">
-									{props.scans.map((scan) => {
-										return (
-											<li key={scan.scanId}>
-												<a
-													href={`/scan/${scan.scanId}`}
-													class="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 transition-colors hover:bg-muted/50"
-												>
-													<div class="flex items-center gap-3">
-														<time
-															class="font-mono text-xs text-muted-foreground"
-															datetime={scan.startedAtIso}
-														>
-															{scan.startedAtIso}
-														</time>
-														{renderScanStatus(scan.status, scan.findingCount)}
-													</div>
-													<span class="font-mono text-xs text-muted-foreground">
-														{formatDurationMs(scan.durationMs)}
-													</span>
-												</a>
-											</li>
-										);
-									})}
-								</ul>
+								<a
+									href={`/scan/${props.currentScan.scanId}`}
+									class="flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 transition-colors hover:bg-muted/50"
+								>
+									<div class="flex items-center gap-3">
+										<time
+											class="font-mono text-xs text-muted-foreground"
+											datetime={props.currentScan.startedAtIso}
+										>
+											{props.currentScan.startedAtIso}
+										</time>
+										{renderScanStatus(props.currentScan.status, props.currentScan.findingCount)}
+									</div>
+									<span class="font-mono text-xs text-muted-foreground">
+										{formatDurationMs(props.currentScan.durationMs)}
+									</span>
+								</a>
 							</ScanCard>
 						)}
 					</Section>

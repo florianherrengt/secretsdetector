@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { asc } from 'drizzle-orm';
-import { createScanForDomainId } from '../scan/scanJob.js';
+import { enqueueBackgroundScanForDomainId } from '../scan/scanJob.js';
 import { db } from '../db/client.js';
 import { domains } from '../db/schema.js';
 
@@ -15,7 +15,7 @@ export const dispatchScans = z
 
 		for (const row of rows) {
 			try {
-				await createScanForDomainId(row.id);
+				await enqueueBackgroundScanForDomainId(row.id);
 			} catch (error) {
 				const normalizedError =
 					error instanceof Error ? error : new Error('Unknown dispatch error');

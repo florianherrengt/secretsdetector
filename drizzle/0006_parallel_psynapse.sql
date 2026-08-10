@@ -1,2 +1,0 @@
-CREATE INDEX "findings_fingerprint_idx" ON "findings" USING btree ("fingerprint");--> statement-breakpoint
-CREATE INDEX "findings_check_id_fingerprint_idx" ON "findings" USING btree ("check_id","fingerprint");

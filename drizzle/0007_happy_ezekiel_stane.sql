@@ -1,1 +1,0 @@
-ALTER TABLE "scans" ADD COLUMN "discovery_metadata" jsonb;

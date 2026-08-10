@@ -77,13 +77,13 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		expect(html).toContain(hostname);
 	});
 
-	test('shows empty state when domain has no scans', async ({ request, authHeaders }) => {
+	test('shows empty state when domain has no scan result', async ({ request, authHeaders }) => {
 		const hostname = `no-scans-${UNIQUE()}.com`;
 		await addDomain(request, authHeaders, hostname);
 
 		const response = await request.get(`/domains/${hostname}`, { headers: authHeaders });
 		const html = await response.text();
-		expect(html).toContain('No scans yet');
+		expect(html).toContain('No scan yet');
 	});
 
 	test('shows scan now button on detail page', async ({ request, authHeaders }) => {
@@ -106,7 +106,7 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		expect(html).toContain('/domains/confirm?token=');
 	});
 
-	test('shows scan history after a scan completes', async ({
+	test('shows current scan result after a scan completes', async ({
 		authedPage,
 		request,
 		authHeaders,
@@ -120,7 +120,11 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		await expect(scanLink).toBeVisible();
 	});
 
-	test('scan row displays status badge and date', async ({ authedPage, request, authHeaders }) => {
+	test('current scan result displays status badge and date', async ({
+		authedPage,
+		request,
+		authHeaders,
+	}) => {
 		await addDomainAndScan(authedPage, request, authHeaders, selfHost);
 
 		await authedPage.goto(`/domains/${selfHost}`);
@@ -148,7 +152,7 @@ test.describe('Domain detail: GET /domains/:hostname', () => {
 		await expect(page).toHaveTitle('Scan Result | Secrets Watch');
 	});
 
-	test('clicking a scan row navigates to scan result', async ({
+	test('clicking the current scan result navigates to scan result', async ({
 		authedPage,
 		request,
 		authHeaders,

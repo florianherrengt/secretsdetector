@@ -6,6 +6,7 @@ import { scanStatusSchema } from '../../schemas/scan.js';
 import { db } from '../db/client.js';
 import { scans } from '../db/schema.js';
 import {
+	createPendingScanRecord,
 	getDomainById,
 	markScanAsFailed,
 	persistScanOutcome,
@@ -19,7 +20,7 @@ const scanWorkerResultSchema = z.object({
 	scanId: z.string().uuid(),
 	status: scanStatusSchema,
 	findingsCount: z.number().int().nonnegative(),
-	insertedFindingsCount: z.number().int().nonnegative(),
+	findingsChanged: z.boolean(),
 });
 
 type ScanWorkerResult = z.infer<typeof scanWorkerResultSchema>;
@@ -66,6 +67,8 @@ const processScanQueueJob = z
 		}
 
 		const { domainId } = parsedPayload.data;
+		const requestedScanId =
+			parsedPayload.data.scanId === null ? null : (parsedPayload.data.scanId ?? job.id ?? null);
 		const domainRecord = await getDomainById(domainId);
 
 		if (!domainRecord) {
@@ -74,17 +77,21 @@ const processScanQueueJob = z
 				domainId,
 			});
 
-			const scanRecord = await getScanRecordById(job.id ?? '');
-			if (scanRecord) {
-				await markScanAsFailed(scanRecord.id);
+			if (requestedScanId !== null) {
+				const scanRecord = await getScanRecordById(requestedScanId);
+				if (scanRecord) {
+					await markScanAsFailed(scanRecord.id);
+
+					return scanWorkerResultSchema.parse({
+						scanId: scanRecord.id,
+						status: 'failed',
+						findingsCount: 0,
+						findingsChanged: false,
+					});
+				}
 			}
 
-			return scanWorkerResultSchema.parse({
-				scanId: scanRecord?.id ?? '',
-				status: 'failed',
-				findingsCount: 0,
-				insertedFindingsCount: 0,
-			});
+			throw new Error(`Domain not found for job ${job.id ?? 'unknown'}`);
 		}
 
 		const domain = domainRecord.hostname;
@@ -95,12 +102,16 @@ const processScanQueueJob = z
 			domain,
 		});
 
-		const scanRecord = await getScanRecordById(job.id ?? '');
+		const scanRecord =
+			requestedScanId === null
+				? await createPendingScanRecord(domainId)
+				: await getScanRecordById(requestedScanId);
 
 		if (!scanRecord) {
 			console.error('[scan-worker] Scan record not found', {
 				jobId: job.id,
 				domainId,
+				scanId: requestedScanId,
 			});
 			throw new Error(`Scan record not found for job ${job.id}`);
 		}
@@ -115,7 +126,7 @@ const processScanQueueJob = z
 			console.log('[scan-worker] Job findings', {
 				jobId: job.id,
 				domain,
-				scanId: scanRecord.id,
+				scanId: persistedResult.scanId,
 				findingsCount: persistedResult.findingsCount,
 			});
 
@@ -123,13 +134,13 @@ const processScanQueueJob = z
 				console.warn('[scan-worker] Scan pipeline reported failed status', {
 					jobId: job.id,
 					domain,
-					scanId: scanRecord.id,
+					scanId: persistedResult.scanId,
 					error: `Scan failed for domain ${domain}`,
 				});
 
 				// Throw so BullMQ records this job as failed (not completed). The
-				// scan row has already been persisted with status='failed' by
-				// persistScanOutcome; throwing here keeps the job outcome
+				// scan outcome has already been handled by the persistence layer;
+				// throwing here keeps the job outcome
 				// consistent with the scan outcome and makes the failure visible
 				// to any retry/monitoring configured on the queue.
 				throw new Error(`Scan failed for domain ${domain}`);

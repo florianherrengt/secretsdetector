@@ -1,23 +1,14 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { render } from '../../../lib/response.js';
 import { scanDomain } from '../../../pipeline/scanDomain.js';
-import {
-	DedupeInputPage,
-	DedupeResultPage,
-	dedupeInputPagePropsSchema,
-	dedupeResultPagePropsSchema,
-} from '../../../views/pages/dedupe.js';
-import { findings, scans } from '../../db/schema.js';
-import { db } from '../../db/client.js';
+import { DedupeInputPage, dedupeInputPagePropsSchema } from '../../../views/pages/dedupe.js';
 import {
 	normalizeSubmittedDomain,
-	dedupeFindingsWithinScan,
 	upsertDomainRecord,
 	createPendingScanRecord,
+	persistScanOutcome,
 } from '../../scan/scanJob.js';
 
 const dedupeRoutes = new Hono();
@@ -64,62 +55,12 @@ dedupeRoutes.post(
 			const scanRecord = await createPendingScanRecord(domainRecord.id);
 
 			const pipelineResult = await scanDomain({ domain: normalizedDomain });
-			const finishedAt = new Date();
-			const dedupedFindings = dedupeFindingsWithinScan(pipelineResult.findings);
-			const dedupedFingerprints = dedupedFindings.map((finding) => finding.fingerprint);
-			const existingFingerprintRows =
-				dedupedFingerprints.length > 0
-					? await db
-							.select({ fingerprint: findings.fingerprint, checkId: findings.checkId })
-							.from(findings)
-							.where(inArray(findings.fingerprint, dedupedFingerprints))
-					: [];
-			const existingFindingKeys = new Set(
-				existingFingerprintRows.map((row) => `${row.checkId}:${row.fingerprint}`),
-			);
-			const newFindings = dedupedFindings.filter(
-				(finding) => !existingFindingKeys.has(`${finding.checkId}:${finding.fingerprint}`),
-			);
-
-			await db
-				.update(scans)
-				.set({
-					status: pipelineResult.status,
-					finishedAt,
-					discoveryMetadata: {
-						discoveredSubdomains: pipelineResult.discoveredSubdomains,
-						stats: pipelineResult.discoveryStats,
-						subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage,
-					},
-				})
-				.where(eq(scans.id, scanRecord.id));
-
-			if (newFindings.length > 0) {
-				await db.insert(findings).values(
-					newFindings.map((finding) => {
-						return {
-							id: randomUUID(),
-							scanId: scanRecord.id,
-							checkId: finding.checkId,
-							type: finding.type,
-							file: finding.file,
-							snippet: finding.snippet,
-							fingerprint: finding.fingerprint,
-							createdAt: finishedAt,
-						};
-					}),
-				);
-			}
-
-			const viewProps = dedupeResultPagePropsSchema.parse({
-				domain: normalizedDomain,
-				rawFindingsCount: pipelineResult.findings.length,
-				afterInternalDedupeCount: dedupedFindings.length,
-				newFindingsInsertedCount: newFindings.length,
-				skippedExistingCount: dedupedFindings.length - newFindings.length,
+			await persistScanOutcome({
+				scanId: scanRecord.id,
+				pipelineResult,
 			});
 
-			return c.html(render(DedupeResultPage, viewProps));
+			return c.redirect(`/scan/${scanRecord.id}`, 302);
 		}),
 );
 

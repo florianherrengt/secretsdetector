@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ScanDomainOutput } from '../../pipeline/scanDomain.js';
 import { domainSchema } from '../../schemas/domain.js';
 import { scanSchema, scanStatusSchema } from '../../schemas/scan.js';
@@ -9,6 +9,7 @@ import { domains, findings, scans } from '../db/schema.js';
 
 export const scanQueueJobDataSchema = z.object({
 	domainId: z.string().uuid(),
+	scanId: z.string().uuid().nullable().optional(),
 });
 
 export type ScanQueueJobData = z.infer<typeof scanQueueJobDataSchema>;
@@ -70,6 +71,38 @@ export const dedupeFindingsWithinScan = z
 		return dedupedFindings;
 	});
 
+const buildFindingResultRows = z
+	.function()
+	.args(z.array(scanFindingSchema))
+	.returns(z.array(scanFindingSchema))
+	.implement((findingRows) => {
+		return findingRows
+			.map((finding) => ({
+				checkId: finding.checkId,
+				type: finding.type,
+				file: finding.file,
+				snippet: finding.snippet,
+				fingerprint: finding.fingerprint,
+			}))
+			.sort((left, right) => {
+				return JSON.stringify(left).localeCompare(JSON.stringify(right));
+			});
+	});
+
+export const buildScanResultHash = z
+	.function()
+	.args(scanStatusSchema, z.array(scanFindingSchema))
+	.returns(z.string())
+	.implement((status, findingRows) => {
+		const hashInput = JSON.stringify({
+			version: 1,
+			status,
+			findings: buildFindingResultRows(dedupeFindingsWithinScan(findingRows)),
+		});
+
+		return createHash('sha256').update(hashInput).digest('hex');
+	});
+
 export const upsertDomainRecord = z
 	.function()
 	.args(z.string().min(1))
@@ -115,79 +148,26 @@ export const createPendingScanRecord = z
 						status: 'pending',
 						startedAt: now,
 						finishedAt: null,
+						resultHash: null,
+					})
+					.onConflictDoUpdate({
+						target: scans.domainId,
+						set: {
+							status: 'pending',
+							startedAt: now,
+							finishedAt: null,
+						},
 					})
 					.returning()
 			)[0],
 		);
 	});
 
-export const getScanRecordById = z
-	.function()
-	.args(z.string().uuid())
-	.returns(z.promise(scanSchema.nullable()))
-	.implement(async (scanId) => {
-		const scanRows = await db.select().from(scans).where(eq(scans.id, scanId)).limit(1);
-
-		if (!scanRows[0]) {
-			return null;
-		}
-
-		return scanSchema.parse(scanRows[0]);
-	});
-
-export const findOldestPendingScanRecord = z
-	.function()
-	.args(z.string().uuid())
-	.returns(z.promise(scanSchema.nullable()))
-	.implement(async (domainId) => {
-		const pendingScanRows = await db
-			.select()
-			.from(scans)
-			.where(
-				and(eq(scans.domainId, domainId), eq(scans.status, 'pending'), isNull(scans.finishedAt)),
-			)
-			.orderBy(asc(scans.startedAt))
-			.limit(1);
-
-		if (!pendingScanRows[0]) {
-			return null;
-		}
-
-		return scanSchema.parse(pendingScanRows[0]);
-	});
-
-export const resolveScanRecordForJob = z
-	.function()
-	.args(
-		z.object({
-			domainId: z.string().uuid(),
-			scanId: z.string().uuid().nullable(),
-		}),
-	)
-	.returns(z.promise(scanSchema))
-	.implement(async ({ domainId, scanId }) => {
-		if (scanId !== null) {
-			const existingScan = await getScanRecordById(scanId);
-
-			if (existingScan) {
-				return existingScan;
-			}
-		}
-
-		const pendingScan = await findOldestPendingScanRecord(domainId);
-
-		if (pendingScan) {
-			return pendingScan;
-		}
-
-		return createPendingScanRecord(domainId);
-	});
-
 export const scanPersistenceResultSchema = z.object({
 	scanId: z.string().uuid(),
 	status: scanStatusSchema,
 	findingsCount: z.number().int().nonnegative(),
-	insertedFindingsCount: z.number().int().nonnegative(),
+	findingsChanged: z.boolean(),
 	discoveredSubdomains: z.array(z.string()),
 	discoveryStats: z.object({
 		fromLinks: z.number().int().nonnegative(),
@@ -206,6 +186,24 @@ export const scanPersistenceResultSchema = z.object({
 
 export type ScanPersistenceResult = z.infer<typeof scanPersistenceResultSchema>;
 
+const buildDiscoveryMetadata = z
+	.function()
+	.args(ScanDomainOutput)
+	.returns(
+		z.object({
+			discoveredSubdomains: z.array(z.string()),
+			stats: scanPersistenceResultSchema.shape.discoveryStats,
+			subdomainAssetCoverage: scanPersistenceResultSchema.shape.subdomainAssetCoverage,
+		}),
+	)
+	.implement((pipelineResult) => {
+		return {
+			discoveredSubdomains: pipelineResult.discoveredSubdomains,
+			stats: pipelineResult.discoveryStats,
+			subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage,
+		};
+	});
+
 export const persistScanOutcome = z
 	.function()
 	.args(
@@ -218,49 +216,60 @@ export const persistScanOutcome = z
 	.implement(async ({ scanId, pipelineResult }) => {
 		const finishedAt = new Date();
 		const dedupedFindings = dedupeFindingsWithinScan(pipelineResult.findings);
-		const existingScanFindingRows = await db
-			.select({ id: findings.id })
-			.from(findings)
-			.where(eq(findings.scanId, scanId))
-			.limit(1);
-		const hasFindingsForScan = existingScanFindingRows.length > 0;
-		const newFindings = hasFindingsForScan ? [] : dedupedFindings;
+		const resultHash = buildScanResultHash(pipelineResult.status, dedupedFindings);
 
-		if (newFindings.length > 0) {
-			await db.insert(findings).values(
-				newFindings.map((finding) => {
-					return {
-						id: randomUUID(),
-						scanId,
-						checkId: finding.checkId,
-						type: finding.type,
-						file: finding.file,
-						snippet: finding.snippet,
-						fingerprint: finding.fingerprint,
-						createdAt: finishedAt,
-					};
-				}),
-			);
-		}
+		const findingsChanged = await db.transaction(async (tx) => {
+			const [currentScan] = await tx
+				.select({ resultHash: scans.resultHash })
+				.from(scans)
+				.where(eq(scans.id, scanId))
+				.for('update');
 
-		await db
-			.update(scans)
-			.set({
-				status: pipelineResult.status,
-				finishedAt,
-				discoveryMetadata: {
-					discoveredSubdomains: pipelineResult.discoveredSubdomains,
-					stats: pipelineResult.discoveryStats,
-					subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage,
-				},
-			})
-			.where(eq(scans.id, scanId));
+			if (!currentScan) {
+				throw new Error(`Scan ${scanId} does not exist`);
+			}
+
+			const shouldReplaceFindings = currentScan.resultHash !== resultHash;
+
+			if (shouldReplaceFindings) {
+				await tx.delete(findings).where(eq(findings.scanId, scanId));
+
+				if (dedupedFindings.length > 0) {
+					await tx.insert(findings).values(
+						dedupedFindings.map((finding) => {
+							return {
+								id: randomUUID(),
+								scanId,
+								checkId: finding.checkId,
+								type: finding.type,
+								file: finding.file,
+								snippet: finding.snippet,
+								fingerprint: finding.fingerprint,
+								createdAt: finishedAt,
+							};
+						}),
+					);
+				}
+			}
+
+			await tx
+				.update(scans)
+				.set({
+					status: pipelineResult.status,
+					finishedAt,
+					resultHash,
+					discoveryMetadata: buildDiscoveryMetadata(pipelineResult),
+				})
+				.where(eq(scans.id, scanId));
+
+			return shouldReplaceFindings;
+		});
 
 		return scanPersistenceResultSchema.parse({
 			scanId,
 			status: pipelineResult.status,
 			findingsCount: dedupedFindings.length,
-			insertedFindingsCount: newFindings.length,
+			findingsChanged,
 			discoveredSubdomains: pipelineResult.discoveredSubdomains,
 			discoveryStats: pipelineResult.discoveryStats,
 			subdomainAssetCoverage: pipelineResult.subdomainAssetCoverage,
@@ -272,13 +281,31 @@ export const markScanAsFailed = z
 	.args(z.string().uuid())
 	.returns(z.promise(z.void()))
 	.implement(async (scanId) => {
-		await db
-			.update(scans)
-			.set({
-				status: 'failed',
-				finishedAt: new Date(),
-			})
-			.where(eq(scans.id, scanId));
+		await db.transaction(async (tx) => {
+			const failedHash = buildScanResultHash('failed', []);
+			const [currentScan] = await tx
+				.select({ resultHash: scans.resultHash })
+				.from(scans)
+				.where(eq(scans.id, scanId))
+				.for('update');
+
+			if (!currentScan) {
+				throw new Error(`Scan ${scanId} does not exist`);
+			}
+
+			if (currentScan.resultHash !== failedHash) {
+				await tx.delete(findings).where(eq(findings.scanId, scanId));
+			}
+
+			await tx
+				.update(scans)
+				.set({
+					status: 'failed',
+					finishedAt: new Date(),
+					resultHash: failedHash,
+				})
+				.where(eq(scans.id, scanId));
+		});
 	});
 
 export const getDomainById = z
@@ -299,13 +326,17 @@ export const createScanResultSchema = z.object({
 	scanId: z.string().uuid(),
 });
 
+export const enqueueBackgroundScanResultSchema = z.object({
+	jobId: z.string().uuid(),
+});
+
 export const createScanForDomainId = z
 	.function()
 	.args(z.string().uuid())
 	.returns(z.promise(createScanResultSchema))
 	.implement(async (domainId) => {
 		const scanRecord = await createPendingScanRecord(domainId);
-		const jobPayload = scanQueueJobDataSchema.parse({ domainId });
+		const jobPayload = scanQueueJobDataSchema.parse({ domainId, scanId: scanRecord.id });
 
 		const { enqueueScanJob } = await import('./scanQueue.js');
 
@@ -328,4 +359,19 @@ export const createScanForDomainId = z
 		}
 
 		return createScanResultSchema.parse({ scanId: scanRecord.id });
+	});
+
+export const enqueueBackgroundScanForDomainId = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(enqueueBackgroundScanResultSchema))
+	.implement(async (domainId) => {
+		const jobId = randomUUID();
+		const jobPayload = scanQueueJobDataSchema.parse({ domainId, scanId: null });
+
+		const { enqueueScanJob } = await import('./scanQueue.js');
+
+		await enqueueScanJob(jobId, jobPayload);
+
+		return enqueueBackgroundScanResultSchema.parse({ jobId });
 	});

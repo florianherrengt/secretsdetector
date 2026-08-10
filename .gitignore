@@ -28,3 +28,6 @@ redis_data/
 
 # Parallel worktree environments (each holds its own .env, data dirs, etc.)
 .worktrees/
+
+# Coolify deployment token
+coolify/coolify_token

@@ -7,6 +7,8 @@ const expectedIndexes = [
 	{ name: 'findings_scan_id_idx', table: 'findings', defContains: '(scan_id)' },
 	{ name: 'scans_domain_id_started_at_idx', table: 'scans', defContains: '(domain_id' },
 	{ name: 'scans_domain_id_started_at_idx', table: 'scans', defContains: 'started_at DESC' },
+	{ name: 'scans_domain_id_unique_idx', table: 'scans', defContains: 'UNIQUE INDEX' },
+	{ name: 'scans_domain_id_unique_idx', table: 'scans', defContains: '(domain_id)' },
 	{ name: 'login_tokens_token_hash_idx', table: 'login_tokens', defContains: '(token_hash)' },
 	{ name: 'login_tokens_email_idx', table: 'login_tokens', defContains: '(email)' },
 	{ name: 'user_domains_user_id_idx', table: 'user_domains', defContains: '(user_id)' },

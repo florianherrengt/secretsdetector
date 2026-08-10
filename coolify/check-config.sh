@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=config.sh
+source "${SCRIPT_DIR}/config.sh"
+
+project_json="$("${SCRIPT_DIR}/api.sh" GET "/projects/${COOLIFY_PROJECT_UUID}")"
+application_json="$("${SCRIPT_DIR}/api.sh" GET "/applications/${COOLIFY_APPLICATION_UUID}")"
+environment_json="$("${SCRIPT_DIR}/api.sh" GET "/applications/${COOLIFY_APPLICATION_UUID}/envs")"
+
+configuration_ok=true
+
+if ! jq -e --arg project_name "${COOLIFY_PROJECT_NAME}" '
+  .name == $project_name
+' >/dev/null <<<"${project_json}"; then
+  configuration_ok=false
+  echo "The Coolify project name must be ${COOLIFY_PROJECT_NAME}." >&2
+fi
+
+if ! jq -e --arg application_name "${COOLIFY_APPLICATION_NAME}" '
+  .name == $application_name and
+  .build_pack == "dockerfile" and
+  .base_directory == "/" and
+  .dockerfile_location == "/Dockerfile" and
+  .ports_exposes == "3000" and
+  .ports_mappings == "4479:3000" and
+  .health_check_enabled == true and
+  .health_check_path == "/api/health" and
+  .health_check_port == "3000" and
+  .health_check_host == "127.0.0.1" and
+  .health_check_method == "GET" and
+  .health_check_scheme == "http" and
+  .health_check_return_code == 200 and
+  .health_check_start_period == 300
+' >/dev/null <<<"${application_json}"; then
+  configuration_ok=false
+  echo "Coolify application configuration is incorrect:" >&2
+  jq '{
+    name,
+    build_pack,
+    base_directory,
+    dockerfile_location,
+    ports_exposes,
+    ports_mappings,
+    health_check_enabled,
+    health_check_path,
+    health_check_port,
+    health_check_host,
+    health_check_method,
+    health_check_scheme,
+    health_check_return_code,
+    health_check_start_period
+  }' <<<"${application_json}" >&2
+fi
+
+public_url="$(jq -r '.fqdn | split(",")[0]' <<<"${application_json}")"
+public_url="${public_url%/}"
+if [[ "${public_url}" != "${COOLIFY_APPLICATION_URL}" ]]; then
+  configuration_ok=false
+  echo "The primary Coolify domain must be ${COOLIFY_APPLICATION_URL}; found ${public_url}." >&2
+fi
+
+raw_proxy_labels="$(jq -r '.custom_labels // ""' <<<"${application_json}")"
+proxy_labels="${raw_proxy_labels}"
+if decoded_proxy_labels="$(printf '%s' "${raw_proxy_labels}" | base64 --decode 2>/dev/null)" &&
+  grep -Eq '(^|\n)(traefik\.|caddy_)' <<<"${decoded_proxy_labels}"; then
+  proxy_labels="${decoded_proxy_labels}"
+fi
+
+if [[ -z "${proxy_labels}" ]]; then
+  configuration_ok=false
+  echo "Coolify proxy labels are missing." >&2
+else
+  if ! grep -Eq 'traefik\.http\.services\..*\.loadbalancer\.server\.port=3000$' <<<"${proxy_labels}" ||
+    ! grep -Eq 'caddy_.*reverse_proxy=\{\{upstreams 3000\}\}$' <<<"${proxy_labels}" ||
+    grep -E 'loadbalancer\.server\.port=|reverse_proxy=\{\{upstreams ' <<<"${proxy_labels}" | grep -Ev 'server\.port=3000$|upstreams 3000\}\}$' >/dev/null; then
+    configuration_ok=false
+    echo "Coolify proxy labels do not exclusively target port 3000." >&2
+  fi
+fi
+
+check_required_runtime_key() {
+  local key="$1"
+
+  if ! jq -e --arg key "${key}" '
+    any(.[];
+      .key == $key and
+      .is_preview == false and
+      .is_buildtime == false and
+      .is_runtime == true and
+      .is_literal == true and
+      (((.real_value // .value // "") | tostring | length) > 0)
+    )
+  ' >/dev/null <<<"${environment_json}"; then
+    configuration_ok=false
+    echo "${key} is missing, empty, or is not a literal production runtime variable." >&2
+  fi
+}
+
+runtime_environment_value() {
+  local key="$1"
+
+  jq -r --arg key "${key}" '
+    [
+      .[] |
+      select(
+        .key == $key and
+        .is_preview == false and
+        .is_buildtime == false and
+        .is_runtime == true and
+        .is_literal == true
+      )
+    ][0] |
+    (.real_value // .value // "")
+  ' <<<"${environment_json}"
+}
+
+required_runtime_keys=(
+  BRAVE_SEARCH_API_KEY
+  LLM_PROVIDER
+  LLM_MODEL_NAME
+  SCRAPINGANT_API_KEY
+  BETTER_AUTH_SECRET
+  GITHUB_CLIENT_ID
+  GITHUB_CLIENT_SECRET
+)
+
+for key in "${required_runtime_keys[@]}"; do
+  check_required_runtime_key "${key}"
+done
+
+llm_provider="$(runtime_environment_value "LLM_PROVIDER")"
+case "${llm_provider}" in
+  deepseek)
+    check_required_runtime_key "DEEPSEEK_API_KEY"
+    ;;
+  zen)
+    check_required_runtime_key "OPENCODE_ZEN_API_KEY"
+    ;;
+  *)
+    configuration_ok=false
+    echo "LLM_PROVIDER must be either deepseek or zen." >&2
+    ;;
+esac
+
+check_optional_environment() {
+  local key="$1"
+  local expected_value="$2"
+
+  if jq -e --arg key "${key}" '
+    any(.[]; .key == $key and .is_preview == false)
+  ' >/dev/null <<<"${environment_json}" && ! jq -e --arg key "${key}" --arg value "${expected_value}" '
+    any(.[];
+      .key == $key and
+      .is_preview == false and
+      .is_buildtime == false and
+      .is_runtime == true and
+      .is_literal == true and
+      (.real_value // .value // "") == $value
+    )
+  ' >/dev/null <<<"${environment_json}"; then
+    configuration_ok=false
+    echo "${key} overrides the image or inferred production default with an invalid value." >&2
+  fi
+}
+
+check_optional_environment "NODE_ENV" "production"
+check_optional_environment "API_HOST" "0.0.0.0"
+check_optional_environment "PORT" "3000"
+check_optional_environment "DATABASE_URL" "/app/data/data.db"
+check_optional_environment "AUTH_DEBUG_USER_ENABLED" "false"
+
+if jq -e 'any(.[]; .key == "BETTER_AUTH_URL" and .is_preview == false)' >/dev/null <<<"${environment_json}" &&
+  ! jq -e --arg public_url "${public_url}" '
+    any(.[];
+      .key == "BETTER_AUTH_URL" and
+      .is_preview == false and
+      ((.real_value // .value // "") | rtrimstr("/")) == $public_url
+    )
+  ' >/dev/null <<<"${environment_json}"; then
+  configuration_ok=false
+  echo "BETTER_AUTH_URL overrides the configured production default but does not match the primary Coolify HTTPS domain." >&2
+fi
+
+if jq -e 'any(.[]; .key == "SEARXNG_URL" and .is_preview == false)' >/dev/null <<<"${environment_json}"; then
+  configuration_ok=false
+  echo "SEARXNG_URL must not be configured in production; this deployment uses Brave." >&2
+fi
+
+if [[ "${configuration_ok}" != true ]]; then
+  exit 1
+fi
+
+echo "Coolify production configuration is valid."

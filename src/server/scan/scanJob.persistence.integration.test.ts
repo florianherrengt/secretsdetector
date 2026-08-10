@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { domains, scans } from '../db/schema.js';
-import { persistScanOutcome } from './scanJob.js';
+import { buildScanResultHash, createPendingScanRecord, persistScanOutcome } from './scanJob.js';
 
 const describeIfDb = process.env.RUN_DB_INTEGRATION_TESTS === '1' ? describe : describe.skip;
 
@@ -57,6 +57,7 @@ describeIfDb('persistScanOutcome DB integration', () => {
 
 		const rows = await db.select().from(scans).where(eq(scans.id, scanId)).limit(1);
 		expect(rows).toHaveLength(1);
+		expect(rows[0]?.resultHash).toBe(buildScanResultHash('success', []));
 		expect(rows[0]?.discoveryMetadata).toEqual({
 			discoveredSubdomains: ['a.example.com', 'b.example.com'],
 			stats: {
@@ -71,5 +72,34 @@ describeIfDb('persistScanOutcome DB integration', () => {
 				{ subdomain: 'b.example.com', scannedAssetPaths: ['assets/b.js'] },
 			],
 		});
+	});
+
+	it('keeps one scan row per domain and preserves the previous hash while pending', async () => {
+		const firstScan = await createPendingScanRecord(domainId);
+		await persistScanOutcome({
+			scanId: firstScan.id,
+			pipelineResult: {
+				status: 'success',
+				checks: [],
+				findings: [],
+				discoveredSubdomains: [],
+				subdomainAssetCoverage: [],
+				discoveryStats: {
+					fromLinks: 0,
+					fromSitemap: 0,
+					totalConsidered: 0,
+					totalAccepted: 0,
+					truncated: false,
+				},
+			},
+		});
+
+		const secondScan = await createPendingScanRecord(domainId);
+
+		const rows = await db.select().from(scans).where(eq(scans.domainId, domainId));
+		expect(rows).toHaveLength(1);
+		expect(secondScan.id).toBe(firstScan.id);
+		expect(rows[0]?.status).toBe('pending');
+		expect(rows[0]?.resultHash).toBe(buildScanResultHash('success', []));
 	});
 });

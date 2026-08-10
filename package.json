@@ -20,7 +20,7 @@
 		"test:e2e": "playwright test",
 		"test:e2e:serve": "run-s e2e:prepare build start",
 		"screenshots:marketing": "tsx scripts/capture-marketing-screenshots.tsx",
-		"e2e:prepare": "node scripts/prepare-e2e-db.mjs",
+		"e2e:prepare": "drizzle-kit migrate",
 		"resetRateLimit": "node scripts/resetRateLimit.mjs",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",

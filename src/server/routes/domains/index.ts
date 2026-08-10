@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { render } from '../../../lib/response.js';
 import {
 	domainDetailPagePropsSchema,
-	scanHistoryItemSchema,
+	currentScanResultSchema,
 	DomainDetailPage,
 } from '../../../views/pages/domainDetail.js';
 import { domainListPagePropsSchema, DomainListPage } from '../../../views/pages/domainList.js';
@@ -63,35 +63,15 @@ domainRoutes.get(
 							})
 							.from(scans)
 							.where(inArray(scans.domainId, domainIds))
-							.orderBy(desc(scans.startedAt))
 					: [];
-			const latestSuccessfulScanByDomainId = new Map<string, string>();
-
-			for (const scanRow of scanRows) {
-				if (scanRow.status !== 'success') {
-					continue;
-				}
-
-				if (!latestSuccessfulScanByDomainId.has(scanRow.domainId)) {
-					latestSuccessfulScanByDomainId.set(scanRow.domainId, scanRow.id);
-				}
-			}
-
-			const latestSuccessfulScanIds = [...new Set(latestSuccessfulScanByDomainId.values())];
-			const findingCountRows =
-				latestSuccessfulScanIds.length > 0
-					? await db
-							.select({
-								scanId: findings.scanId,
-								count: sql<number>`count(*)`,
-							})
-							.from(findings)
-							.where(inArray(findings.scanId, latestSuccessfulScanIds))
-							.groupBy(findings.scanId)
-					: [];
-			const findingCountByScanId = new Map(
-				findingCountRows.map((row) => [row.scanId, Number(row.count)]),
+			const successfulScanByDomainId = new Map(
+				scanRows
+					.filter((scanRow) => scanRow.status === 'success')
+					.map((scanRow) => [scanRow.domainId, scanRow.id]),
 			);
+			const findingCountByScanId = await getFindingCountsByScanId([
+				...successfulScanByDomainId.values(),
+			]);
 			const viewProps = domainListPagePropsSchema.parse({
 				domains: rows.map((row) => ({
 					id: row.id,
@@ -103,7 +83,7 @@ domainRoutes.get(
 							return 'none';
 						}
 
-						const scanId = latestSuccessfulScanByDomainId.get(domainId);
+						const scanId = successfulScanByDomainId.get(domainId);
 
 						if (!scanId) {
 							return 'none';
@@ -166,12 +146,12 @@ domainRoutes.post(
 		.implement(postConfirmHandler),
 );
 
-const buildScanHistoryItems = z
+const buildCurrentScanResult = z
 	.function()
 	.args(z.string().uuid())
-	.returns(z.promise(z.array(scanHistoryItemSchema)))
+	.returns(z.promise(currentScanResultSchema.nullable()))
 	.implement(async (domainId) => {
-		const scanRows = await db
+		const [scanRow] = await db
 			.select({
 				id: scans.id,
 				status: scans.status,
@@ -180,37 +160,56 @@ const buildScanHistoryItems = z
 			})
 			.from(scans)
 			.where(eq(scans.domainId, domainId))
-			.orderBy(desc(scans.startedAt));
+			.limit(1);
 
-		const successfulScanIds = scanRows
-			.filter((row) => row.status === 'success')
-			.map((row) => row.id);
-
-		const findingCountMap = new Map<string, number>();
-
-		if (successfulScanIds.length > 0) {
-			const findingCountRows = await db
-				.select({
-					scanId: findings.scanId,
-					count: sql<number>`count(*)`,
-				})
-				.from(findings)
-				.where(inArray(findings.scanId, successfulScanIds))
-				.groupBy(findings.scanId);
-			for (const row of findingCountRows) {
-				findingCountMap.set(row.scanId, Number(row.count));
-			}
+		if (!scanRow) {
+			return null;
 		}
 
-		return scanRows.map((row) => ({
-			scanId: row.id,
-			status: scanStatusSchema.parse(row.status),
-			startedAtIso: row.startedAt.toISOString(),
-			durationMs: row.finishedAt
-				? Math.max(0, row.finishedAt.getTime() - row.startedAt.getTime())
+		const findingCount =
+			scanRow.status === 'success'
+				? Number(
+						(
+							await db
+								.select({
+									count: sql<number>`count(*)`,
+								})
+								.from(findings)
+								.where(eq(findings.scanId, scanRow.id))
+						)[0]?.count ?? 0,
+					)
+				: 0;
+
+		return currentScanResultSchema.parse({
+			scanId: scanRow.id,
+			status: scanStatusSchema.parse(scanRow.status),
+			startedAtIso: scanRow.startedAt.toISOString(),
+			durationMs: scanRow.finishedAt
+				? Math.max(0, scanRow.finishedAt.getTime() - scanRow.startedAt.getTime())
 				: 0,
-			findingCount: row.status === 'success' ? (findingCountMap.get(row.id) ?? 0) : 0,
-		}));
+			findingCount,
+		});
+	});
+
+const getFindingCountsByScanId = z
+	.function()
+	.args(z.array(z.string().uuid()))
+	.returns(z.promise(z.map(z.string().uuid(), z.number().int().nonnegative())))
+	.implement(async (scanIds) => {
+		if (scanIds.length === 0) {
+			return new Map();
+		}
+
+		const findingCountRows = await db
+			.select({
+				scanId: findings.scanId,
+				count: sql<number>`count(*)`,
+			})
+			.from(findings)
+			.where(inArray(findings.scanId, scanIds))
+			.groupBy(findings.scanId);
+
+		return new Map(findingCountRows.map((row) => [row.scanId, Number(row.count)]));
 	});
 
 domainRoutes.get(
@@ -246,8 +245,8 @@ domainRoutes.get(
 				.where(eq(domains.hostname, hostname))
 				.limit(1);
 
-			const scanHistoryItems =
-				domainRows.length > 0 ? await buildScanHistoryItems(domainRows[0].id) : [];
+			const currentScan =
+				domainRows.length > 0 ? await buildCurrentScanResult(domainRows[0].id) : null;
 
 			const deleteConfirmHref = await buildConfirmUrl(
 				'delete_domain',
@@ -258,7 +257,7 @@ domainRoutes.get(
 
 			const viewProps = domainDetailPagePropsSchema.parse({
 				hostname,
-				scans: scanHistoryItems,
+				currentScan,
 				deleteConfirmHref,
 			});
 

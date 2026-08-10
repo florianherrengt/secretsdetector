@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	normalizeSubmittedDomain,
 	dedupeFindingsWithinScan,
+	buildScanResultHash,
 	scanPersistenceResultSchema,
 	scanQueueJobDataSchema,
 	createScanResultSchema,
@@ -12,6 +13,22 @@ const MOCK_DOMAIN_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
 describe('scanQueueJobDataSchema', () => {
 	it('accepts valid domainId', () => {
 		const result = scanQueueJobDataSchema.safeParse({ domainId: MOCK_DOMAIN_ID });
+		expect(result.success).toBe(true);
+	});
+
+	it('accepts null scanId for background checks', () => {
+		const result = scanQueueJobDataSchema.safeParse({
+			domainId: MOCK_DOMAIN_ID,
+			scanId: null,
+		});
+		expect(result.success).toBe(true);
+	});
+
+	it('accepts valid scanId for visible scans', () => {
+		const result = scanQueueJobDataSchema.safeParse({
+			domainId: MOCK_DOMAIN_ID,
+			scanId: '10000000-0000-4000-8000-000000000001',
+		});
 		expect(result.success).toBe(true);
 	});
 
@@ -107,13 +124,91 @@ describe('dedupeFindingsWithinScan', () => {
 	});
 });
 
+describe('buildScanResultHash', () => {
+	it('is stable for finding order', () => {
+		const first = buildScanResultHash('success', [
+			{
+				checkId: 'check-b',
+				type: 'secret' as const,
+				file: 'b.js',
+				snippet: 's2',
+				fingerprint: 'fp2',
+			},
+			{
+				checkId: 'check-a',
+				type: 'secret' as const,
+				file: 'a.js',
+				snippet: 's1',
+				fingerprint: 'fp1',
+			},
+		]);
+		const second = buildScanResultHash('success', [
+			{
+				checkId: 'check-a',
+				type: 'secret' as const,
+				file: 'a.js',
+				snippet: 's1',
+				fingerprint: 'fp1',
+			},
+			{
+				checkId: 'check-b',
+				type: 'secret' as const,
+				file: 'b.js',
+				snippet: 's2',
+				fingerprint: 'fp2',
+			},
+		]);
+
+		expect(first).toMatch(/^[a-f0-9]{64}$/u);
+		expect(first).toBe(second);
+	});
+
+	it('changes when findings change', () => {
+		const cleanHash = buildScanResultHash('success', []);
+		const findingHash = buildScanResultHash('success', [
+			{
+				checkId: 'check-a',
+				type: 'secret' as const,
+				file: 'a.js',
+				snippet: 's1',
+				fingerprint: 'fp1',
+			},
+		]);
+
+		expect(cleanHash).not.toBe(findingHash);
+	});
+
+	it('changes when finding details change under the same fingerprint', () => {
+		const first = buildScanResultHash('success', [
+			{
+				checkId: 'check-a',
+				type: 'secret' as const,
+				file: 'a.js',
+				snippet: 's1',
+				fingerprint: 'fp1',
+			},
+		]);
+		const second = buildScanResultHash('success', [
+			{
+				checkId: 'check-a',
+				type: 'secret' as const,
+				file: 'b.js',
+				snippet: 's1',
+				fingerprint: 'fp1',
+			},
+		]);
+
+		expect(first).not.toBe(second);
+	});
+});
+
 describe('scanPersistenceResultSchema', () => {
 	it('accepts result with discoveredSubdomains and discoveryStats', () => {
 		const result = scanPersistenceResultSchema.safeParse({
 			scanId: MOCK_DOMAIN_ID,
 			status: 'success',
 			findingsCount: 1,
-			insertedFindingsCount: 1,
+			findingsChanged: true,
 			discoveredSubdomains: ['a.example.com', 'b.example.com'],
 			subdomainAssetCoverage: [
 				{ subdomain: 'a.example.com', scannedAssetPaths: ['assets/main.js'] },
@@ -140,7 +235,7 @@ describe('scanPersistenceResultSchema', () => {
 			scanId: MOCK_DOMAIN_ID,
 			status: 'failed',
 			findingsCount: 0,
-			insertedFindingsCount: 0,
+			findingsChanged: true,
 			discoveredSubdomains: [],
 			subdomainAssetCoverage: [],
 			discoveryStats: {
@@ -159,7 +254,7 @@ describe('scanPersistenceResultSchema', () => {
 			scanId: MOCK_DOMAIN_ID,
 			status: 'success',
 			findingsCount: 0,
-			insertedFindingsCount: 0,
+			findingsChanged: false,
 			discoveredSubdomains: Array.from({ length: 20 }, (_, i) => `sub${i}.example.com`),
 			subdomainAssetCoverage: Array.from({ length: 20 }, (_, i) => ({
 				subdomain: `sub${i}.example.com`,
