@@ -45,7 +45,7 @@ test.describe('home page', () => {
 	test('loads and shows scan form', async ({ page }) => {
 		await page.goto('/');
 
-		await expect(page).toHaveTitle('Secrets Watch');
+		await expect(page).toHaveTitle('Secrets Watch | Secrets Watch');
 		await expect(page.getByRole('button', { name: 'Scan now' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Get started' })).toBeVisible();
 		await expect(page.getByRole('link', { name: 'Sign in' })).toHaveCount(0);

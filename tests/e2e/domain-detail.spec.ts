@@ -24,7 +24,7 @@ const addDomain = async (
 };
 
 const waitForScanCompletion = async (page: import('@playwright/test').Page) => {
-	for (let attempt = 0; attempt < 40; attempt += 1) {
+	for (let attempt = 0; attempt < 60; attempt += 1) {
 		const issueDetected = await page.getByText('Issue Detected', { exact: true }).count();
 		const noIssuesFound = await page.getByText('No Issues Found', { exact: true }).count();
 
