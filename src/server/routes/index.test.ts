@@ -1,9 +1,8 @@
-/* eslint-disable custom/no-mutable-variables */
 import { beforeAll, describe, it, expect } from 'vitest';
 import type { Hono } from 'hono';
 import { assetPath } from '../../lib/assets.js';
 
-let app: Hono;
+let app: Hono; // eslint-disable-line custom/no-mutable-variables, functional/no-let
 
 const fingerprintedAssetPathPattern = /^\/assets\/[^/?]+\.[a-f0-9]{32}\.[^/?]+$/u;
 

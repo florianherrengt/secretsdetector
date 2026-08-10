@@ -1,4 +1,3 @@
-/* eslint-disable custom/no-mutable-variables */
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterEach, describe, expect, it } from 'vitest';
 import type { Hono } from 'hono';
@@ -10,14 +9,14 @@ import { clearConfirmTokens } from '../db/confirmTokenStore.js';
 import { clearCsrfTokens } from '../csrf/csrfTokenStore.js';
 import { clearConfirmTokenRows, getConfirmTokenRow } from '../db/confirmTokenTestUtils.js';
 
-let app: Hono;
-let userId = '';
-let sessionId = '';
-let email = '';
-let authHeaders: Record<string, string>;
-let otherUserId = '';
-let otherSessionId = '';
-let otherAuthHeaders: Record<string, string>;
+let app: Hono; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let userId = ''; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let sessionId = ''; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let email = ''; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let authHeaders: Record<string, string>; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let otherUserId = ''; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let otherSessionId = ''; // eslint-disable-line custom/no-mutable-variables, functional/no-let
+let otherAuthHeaders: Record<string, string>; // eslint-disable-line custom/no-mutable-variables, functional/no-let
 
 beforeAll(async () => {
 	process.env.ADMIN_BASIC_AUTH_USERNAME = 'admin';

@@ -21,18 +21,18 @@ export const registerHourlyScheduler = z
 		console.log('[scheduler] Registered hourly job scheduler');
 	});
 
-let schedulerWorker: Worker | null = null; // eslint-disable-line custom/no-mutable-variables
+const schedulerWorkerRef: { current: Worker | null } = { current: null };
 
 export const startSchedulerWorker = z
 	.function()
 	.args()
 	.returns(z.custom<Worker>())
 	.implement(() => {
-		if (schedulerWorker) {
-			return schedulerWorker;
+		if (schedulerWorkerRef.current) {
+			return schedulerWorkerRef.current;
 		}
 
-		schedulerWorker = new Worker(
+		schedulerWorkerRef.current = new Worker(
 			schedulerQueueName,
 			z
 				.function()
@@ -47,14 +47,14 @@ export const startSchedulerWorker = z
 		// Make worker-level failures observable and prevent unhandled-emitter
 		// crashes. dispatchScans already catches per-domain errors; these
 		// handlers cover worker/Redis-level failures.
-		schedulerWorker.on('error', (error) => {
+		schedulerWorkerRef.current.on('error', (error) => {
 			console.error('[scheduler] Worker error', { error: error.message });
 		});
-		schedulerWorker.on('failed', (job, error) => {
+		schedulerWorkerRef.current.on('failed', (job, error) => {
 			console.error('[scheduler] Job failed', { jobId: job?.id, error: error.message });
 		});
 
 		console.log(`[scheduler] Worker listening on queue ${schedulerQueueName}`);
 
-		return schedulerWorker;
+		return schedulerWorkerRef.current;
 	});

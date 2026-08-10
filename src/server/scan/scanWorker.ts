@@ -204,18 +204,20 @@ const processScanQueueJob = z
 		}
 	});
 
-let scanWorker: Worker<ScanQueueJobData, ScanWorkerResult> | null = null; // eslint-disable-line custom/no-mutable-variables
+const scanWorkerRef: { current: Worker<ScanQueueJobData, ScanWorkerResult> | null } = {
+	current: null,
+};
 
 export const startScanWorker = z
 	.function()
 	.args()
 	.returns(z.custom<Worker<ScanQueueJobData, ScanWorkerResult>>())
 	.implement(() => {
-		if (scanWorker) {
-			return scanWorker;
+		if (scanWorkerRef.current) {
+			return scanWorkerRef.current;
 		}
 
-		scanWorker = new Worker<ScanQueueJobData, ScanWorkerResult>(
+		scanWorkerRef.current = new Worker<ScanQueueJobData, ScanWorkerResult>(
 			scanQueueName,
 			processScanQueueJob,
 			{
@@ -228,10 +230,10 @@ export const startScanWorker = z
 		// The job-level catch in processScanQueueJob already persists a failed
 		// scan; these handlers make worker-level failures observable instead of
 		// silently dropped, and prevent unhandled-emitter crashes.
-		scanWorker.on('error', (error) => {
+		scanWorkerRef.current.on('error', (error) => {
 			console.error('[scan-worker] Worker error', { error: error.message });
 		});
-		scanWorker.on('failed', (job, error) => {
+		scanWorkerRef.current.on('failed', (job, error) => {
 			console.error('[scan-worker] Job failed', {
 				jobId: job?.id,
 				error: error.message,
@@ -240,5 +242,5 @@ export const startScanWorker = z
 
 		console.log(`[scan-worker] Listening on queue ${scanQueueName}`);
 
-		return scanWorker;
+		return scanWorkerRef.current;
 	});
