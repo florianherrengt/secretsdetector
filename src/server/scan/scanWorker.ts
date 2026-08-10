@@ -6,11 +6,15 @@ import { scanStatusSchema } from '../../schemas/scan.js';
 import { db } from '../db/client.js';
 import { scans } from '../db/schema.js';
 import {
+	bumpScanTimestamp,
 	createPendingScanRecord,
+	getAssetSnapshot,
 	getDomainById,
+	getScanFindingsCount,
 	markScanAsFailed,
 	persistScanOutcome,
 	scanQueueJobDataSchema,
+	upsertAssetSnapshot,
 	type ScanQueueJobData,
 } from './scanJob.js';
 import { scanQueueName } from './scanQueue.js';
@@ -117,11 +121,48 @@ const processScanQueueJob = z
 		}
 
 		try {
-			const pipelineResult = await scanDomain({ domain });
+			const previousCache = await getAssetSnapshot(domainId);
+			const pipelineResult = await scanDomain({
+				domain,
+				previousCache: previousCache ?? undefined,
+			});
+
+			// Cache hit: every probed URL returned 304. Don't call
+			// persistScanOutcome — the existing findings stay in the DB
+			// untouched. Just bump the scan timestamps so "last checked"
+			// reflects this run, and refresh the stored cache headers
+			// (ETags can rotate even when content hasn't changed).
+			if (pipelineResult.assetsUnchanged && pipelineResult.assetCache) {
+				await bumpScanTimestamp(scanRecord.id);
+				await upsertAssetSnapshot(domainId, pipelineResult.assetCache);
+				const findingsCount = await getScanFindingsCount(scanRecord.id);
+
+				console.log('[scan-worker] Assets unchanged, skipped full scan', {
+					jobId: job.id,
+					domain,
+					scanId: scanRecord.id,
+					findingsCount,
+				});
+
+				return scanWorkerResultSchema.parse({
+					scanId: scanRecord.id,
+					status: 'success',
+					findingsCount,
+					findingsChanged: false,
+				});
+			}
+
 			const persistedResult = await persistScanOutcome({
 				scanId: scanRecord.id,
 				pipelineResult,
 			});
+
+			// Only persist the snapshot on success. A failed scan must never
+			// populate the cache — otherwise the failure would suppress the
+			// next retry's full scan.
+			if (pipelineResult.assetCache && pipelineResult.status === 'success') {
+				await upsertAssetSnapshot(domainId, pipelineResult.assetCache);
+			}
 
 			console.log('[scan-worker] Job findings', {
 				jobId: job.id,

@@ -9,6 +9,7 @@ import {
 	uniqueIndex,
 	uuid,
 } from 'drizzle-orm/pg-core';
+import type { AssetCache } from '../../schemas/assetCache.js';
 
 export const scanStatusEnum = pgEnum('scan_status', ['pending', 'success', 'failed']);
 
@@ -79,6 +80,32 @@ export const findings = pgTable(
 		return {
 			findingsFingerprintIdx: index('findings_fingerprint_idx').on(table.fingerprint),
 			findingsScanIdIdx: index('findings_scan_id_idx').on(table.scanId),
+		};
+	},
+);
+
+// One row per domain storing the ETag/Last-Modified/bodyHash of every asset
+// the last successful scan examined. The worker uses this to send conditional
+// requests (If-None-Match) on the next scan — if all return 304, the full
+// pipeline is skipped. Unique on domain_id so it upserts in place.
+export const assetSnapshots = pgTable(
+	'asset_snapshots',
+	{
+		id: uuid('id').primaryKey(),
+		domainId: uuid('domain_id')
+			.notNull()
+			// eslint-disable-next-line custom/no-raw-functions
+			.references(() => domains.id, { onDelete: 'cascade' }),
+		cache: jsonb('cache').$type<AssetCache>().notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+	},
+	// eslint-disable-next-line custom/no-raw-functions
+	(table) => {
+		return {
+			assetSnapshotsDomainIdUniqueIdx: uniqueIndex('asset_snapshots_domain_id_unique_idx').on(
+				table.domainId,
+			),
 		};
 	},
 );

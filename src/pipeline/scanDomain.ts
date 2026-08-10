@@ -21,9 +21,17 @@ import {
 	type DiscoveryOutput,
 } from './discovery.js';
 import { safeNewUrl } from './url.js';
+import {
+	assetCacheSchema,
+	type AssetCache,
+	type CacheEntry,
+	type CachedUrl,
+} from '../schemas/assetCache.js';
+import { extractCacheEntry, probeAssetCache } from './assetCache.js';
 
 export const ScanDomainInput = z.object({
 	domain: z.string(),
+	previousCache: assetCacheSchema.optional(),
 });
 
 const scanFindingWithCheckIdSchema = z.object({
@@ -46,6 +54,8 @@ export const ScanDomainOutput = z.object({
 			scannedAssetPaths: z.array(z.string()),
 		}),
 	),
+	assetsUnchanged: z.boolean().optional(),
+	assetCache: assetCacheSchema.optional(),
 });
 
 export type ScanDomainInput = z.infer<typeof ScanDomainInput>;
@@ -768,7 +778,7 @@ const parseHasSourcesContent = z
 const probeSourceMap = z
 	.function()
 	.args(z.custom<SourceMapRef>(), z.custom<Semaphore>().optional())
-	.returns(z.promise(z.custom<SourceMapProbe>()))
+	.returns(z.promise(z.custom<SourceMapProbe & { cacheEntry: CacheEntry | null }>()))
 	.implement(async (ref, semaphore) => {
 		const mapParsedUrl = new URL(ref.url);
 		const hostname = mapParsedUrl.hostname.toLowerCase();
@@ -784,6 +794,7 @@ const probeSourceMap = z
 				isAccessible: false,
 				httpStatus: null,
 				hasSourcesContent: null,
+				cacheEntry: null,
 			};
 		}
 
@@ -807,6 +818,7 @@ const probeSourceMap = z
 				isAccessible: false,
 				httpStatus: null,
 				hasSourcesContent: null,
+				cacheEntry: null,
 			};
 		}
 
@@ -819,18 +831,30 @@ const probeSourceMap = z
 				isAccessible: false,
 				httpStatus: null,
 				hasSourcesContent: null,
+				cacheEntry: null,
 			};
 		}
 
 		const isAccessible = response.ok || response.status === 206;
 		const httpStatus = response.status;
 		let hasSourcesContent: boolean | null = null; // eslint-disable-line custom/no-mutable-variables
+		let cacheEntry: CacheEntry | null = null; // eslint-disable-line custom/no-mutable-variables
 
 		if (isAccessible) {
 			const body = await readResponseTextWithLimit(response, SOURCE_MAP_MAX_BYTES);
 
 			if (body !== null) {
 				hasSourcesContent = parseHasSourcesContent(body);
+				// Capture cache metadata for accessible source maps so the
+				// next scan's probe can conditional-fetch them. We reuse the
+				// body we already read for hasSourcesContent — no extra fetch.
+				const responseHeaders: Record<string, string> = {};
+
+				response.headers.forEach((value, key) => {
+					responseHeaders[key] = value;
+				});
+
+				cacheEntry = extractCacheEntry(body, responseHeaders);
 			}
 		}
 
@@ -841,6 +865,7 @@ const probeSourceMap = z
 			isAccessible,
 			httpStatus,
 			hasSourcesContent,
+			cacheEntry,
 		};
 	});
 
@@ -851,12 +876,14 @@ const toFailedResult = z
 	.implement(() => {
 		const empty = getEmptyDiscoveryOutput();
 		return {
-			status: 'failed',
+			status: 'failed' as const,
 			checks: [],
 			findings: [],
 			discoveredSubdomains: empty.subdomains,
 			discoveryStats: empty.stats,
 			subdomainAssetCoverage: [],
+			assetsUnchanged: undefined,
+			assetCache: undefined,
 		};
 	});
 
@@ -979,6 +1006,30 @@ export const scanDomain = z
 		const semaphore = createSemaphore(MAX_CONCURRENT_FETCHES);
 
 		const baseHost = new URL(targetUrl).hostname;
+
+		// Before fetching anything, probe the previous scan's cached URLs with
+		// conditional requests. If every asset still returns 304, the findings
+		// are guaranteed identical — skip the entire fetch + check pipeline.
+		// The worker keeps the existing findings in the DB and just bumps the
+		// scan timestamp.
+		if (input.previousCache) {
+			const probeResult = await probeAssetCache(input.previousCache, semaphore, baseHost);
+
+			if (probeResult.unchanged) {
+				const empty = getEmptyDiscoveryOutput();
+
+				return {
+					status: 'success',
+					checks: [],
+					findings: [],
+					discoveredSubdomains: empty.subdomains,
+					discoveryStats: empty.stats,
+					subdomainAssetCoverage: [],
+					assetsUnchanged: true,
+					assetCache: probeResult.refreshedCache,
+				};
+			}
+		}
 
 		const homepage = await fetchTextResource(
 			targetUrl,
@@ -1106,14 +1157,21 @@ export const scanDomain = z
 		}
 
 		const sourceMapProbes: SourceMapProbe[] = [];
+		const sourceMapCacheUrls: CachedUrl[] = [];
 
 		for (const ref of finalRefs) {
 			const probe = await probeSourceMap(ref, semaphore);
-			sourceMapProbes.push(probe);
+			const { cacheEntry, ...probeData } = probe;
+			sourceMapProbes.push(probeData);
+
+			if (probe.isAccessible && cacheEntry) {
+				sourceMapCacheUrls.push({ url: ref.url, entry: cacheEntry });
+			}
 		}
 
 		const sitemapCandidateUrls = buildSitemapCandidateUrls(targetUrl, homepageUrl);
 		let sitemapFound = false; // eslint-disable-line custom/no-mutable-variables
+		let sitemapCacheUrl: CachedUrl | null = null; // eslint-disable-line custom/no-mutable-variables
 
 		for (const sitemapCandidateUrl of sitemapCandidateUrls) {
 			const sitemapResponse = await fetchTextResource(
@@ -1127,6 +1185,10 @@ export const scanDomain = z
 
 			if (sitemapResponse !== null) {
 				sitemapFound = true;
+				sitemapCacheUrl = {
+					url: sitemapResponse.finalUrl,
+					entry: extractCacheEntry(sitemapResponse.body, sitemapResponse.headers),
+				};
 				break;
 			}
 		}
@@ -1156,6 +1218,21 @@ export const scanDomain = z
 			});
 		});
 
+		const assetCache: AssetCache = {
+			version: 1,
+			homepage: {
+				url: homepageUrl,
+				entry: extractCacheEntry(homepage.body, homepage.headers),
+			},
+			scripts: finalScripts.map((script) => ({
+				url: script.file,
+				entry: extractCacheEntry(script.content, script.headers),
+			})),
+			sourceMaps: sourceMapCacheUrls,
+			sitemap: sitemapCacheUrl,
+			sitemapFound,
+		};
+
 		return {
 			status: 'success',
 			checks,
@@ -1166,5 +1243,6 @@ export const scanDomain = z
 				truncated,
 			},
 			subdomainAssetCoverage,
+			assetCache,
 		};
 	});

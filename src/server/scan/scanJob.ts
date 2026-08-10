@@ -2,10 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { ScanDomainOutput } from '../../pipeline/scanDomain.js';
+import { assetCacheSchema } from '../../schemas/assetCache.js';
 import { domainSchema } from '../../schemas/domain.js';
 import { scanSchema, scanStatusSchema } from '../../schemas/scan.js';
 import { db } from '../db/client.js';
-import { domains, findings, scans } from '../db/schema.js';
+import { assetSnapshots, domains, findings, scans } from '../db/schema.js';
 
 export const scanQueueJobDataSchema = z.object({
 	domainId: z.string().uuid(),
@@ -320,6 +321,81 @@ export const getDomainById = z
 		}
 
 		return domainSchema.parse(rows[0]);
+	});
+
+export const getAssetSnapshot = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(assetCacheSchema.nullable()))
+	.implement(async (domainId) => {
+		const rows = await db
+			.select({ cache: assetSnapshots.cache })
+			.from(assetSnapshots)
+			.where(eq(assetSnapshots.domainId, domainId))
+			.limit(1);
+
+		if (!rows[0]) {
+			return null;
+		}
+
+		return assetCacheSchema.parse(rows[0].cache);
+	});
+
+export const upsertAssetSnapshot = z
+	.function()
+	.args(z.string().uuid(), assetCacheSchema)
+	.returns(z.promise(z.void()))
+	.implement(async (domainId, cache) => {
+		const now = new Date();
+
+		await db
+			.insert(assetSnapshots)
+			.values({
+				id: randomUUID(),
+				domainId,
+				cache,
+				createdAt: now,
+				updatedAt: now,
+			})
+			.onConflictDoUpdate({
+				target: assetSnapshots.domainId,
+				set: {
+					cache,
+					updatedAt: now,
+				},
+			});
+	});
+
+export const bumpScanTimestamp = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(z.void()))
+	.implement(async (scanId) => {
+		const now = new Date();
+
+		// On a cache hit we don't touch status, resultHash, findings, or
+		// discovery_metadata — only the timestamps, so "last checked"
+		// reflects when the probe ran.
+		await db
+			.update(scans)
+			.set({
+				startedAt: now,
+				finishedAt: now,
+			})
+			.where(eq(scans.id, scanId));
+	});
+
+export const getScanFindingsCount = z
+	.function()
+	.args(z.string().uuid())
+	.returns(z.promise(z.number().int().nonnegative()))
+	.implement(async (scanId) => {
+		const rows = await db
+			.select({ id: findings.id })
+			.from(findings)
+			.where(eq(findings.scanId, scanId));
+
+		return rows.length;
 	});
 
 export const createScanResultSchema = z.object({
