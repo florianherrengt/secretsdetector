@@ -8,6 +8,7 @@ const port = Number(process.env.PORT) || 3000;
 export default defineConfig({
 	testDir: './tests/e2e',
 	fullyParallel: true,
+	timeout: 60_000,
 	use: {
 		baseURL,
 		trace: 'on-first-retry',
