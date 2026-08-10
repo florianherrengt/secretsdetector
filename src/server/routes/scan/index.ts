@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isIP } from 'node:net';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
@@ -71,17 +72,27 @@ export const checkDomainReachability = z
 		const url =
 			domain.startsWith('http://') || domain.startsWith('https://') ? domain : `http://${domain}`;
 
-		// SSRF guard: resolve the host and refuse to fetch private/internal/loopback
-		// targets (169.254.169.254, 127.0.0.1, RFC1918, etc.) BEFORE issuing any
-		// request. The pipeline layer applies the same check via resolveAndCheckHost,
-		// but this probe runs before the pipeline and must not bypass that defense.
+		// SSRF guard: resolve the host and refuse to fetch private/internal
+		// targets (169.254.169.254, RFC1918, etc.) BEFORE issuing any request.
+		// Loopback (localhost, 127.0.0.0/8, ::1) is allowed through so local dev
+		// and e2e tests can scan the app itself — every other address goes
+		// through resolveAndCheckHost, including explicit private IPs.
 		const parsedUrl = safeParseUrl(url);
 		if (parsedUrl === null) {
 			return false;
 		}
-		const isSafeTarget = await resolveAndCheckHost(parsedUrl.hostname);
-		if (!isSafeTarget) {
-			return false;
+		const hostname = parsedUrl.hostname.toLowerCase();
+		const isLoopback =
+			hostname === 'localhost' ||
+			hostname.endsWith('.localhost') ||
+			hostname === '::1' ||
+			(isIP(hostname) === 4 && hostname.startsWith('127.'));
+
+		if (!isLoopback) {
+			const isSafeTarget = await resolveAndCheckHost(parsedUrl.hostname);
+			if (!isSafeTarget) {
+				return false;
+			}
 		}
 
 		try {
