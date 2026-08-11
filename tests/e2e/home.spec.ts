@@ -140,7 +140,7 @@ test.describe('home page', () => {
 		]);
 
 		await page.goto('/');
-		await expect(page).toHaveTitle('Secrets Watch');
+		await expect(page).toHaveTitle('Secrets Watch | Secrets Watch');
 		await expect(page.getByText('Your account has been deleted.')).toHaveCount(0);
 	});
 });

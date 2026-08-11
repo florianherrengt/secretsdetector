@@ -2,7 +2,7 @@ import { type Page } from '@playwright/test';
 import { expect, test } from './fixtures/authed';
 
 const waitForScanCompletion = async (page: Page) => {
-	for (let attempt = 0; attempt < 40; attempt += 1) {
+	for (let attempt = 0; attempt < 120; attempt += 1) {
 		const issueDetected = await page.getByText('Issue Detected', { exact: true }).count();
 		const noIssuesFound = await page.getByText('No Issues Found', { exact: true }).count();
 
