@@ -52,7 +52,7 @@ const addDomainAndScan = async (
 	await waitForScanCompletion(page);
 };
 
-test.describe('Domain detail: GET /domains/:hostname', () => {
+test.describe.serial('Domain detail: GET /domains/:hostname', () => {
 	test('returns 404 for unknown hostname', async ({ request, authHeaders }) => {
 		const response = await request.get(`/domains/nonexistent-${UNIQUE()}.com`, {
 			headers: authHeaders,

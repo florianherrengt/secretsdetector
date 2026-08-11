@@ -17,7 +17,7 @@ const waitForScanCompletion = async (page: Page) => {
 	throw new Error('Timed out waiting for scan completion');
 };
 
-test.describe('localStorage JWT detection', () => {
+test.describe.serial('localStorage JWT detection', () => {
 	test('flags token key in large bundle fixture from home scan flow', async ({
 		authedPage: page,
 	}) => {

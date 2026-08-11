@@ -16,7 +16,7 @@ const waitForScanCompletion = async (page: import('@playwright/test').Page) => {
 	throw new Error('Timed out waiting for scan completion');
 };
 
-test.describe('scan result timestamps', () => {
+test.describe.serial('scan result timestamps', () => {
 	test('renders <time> elements with ISO datetime on scan result', async ({ authedPage: page }) => {
 		await page.goto('/');
 

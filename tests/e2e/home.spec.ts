@@ -41,7 +41,7 @@ const waitForScanFromHome = async (page: Page) => {
 	throw new Error('Rate limit prevented scanning demo website');
 };
 
-test.describe('home page', () => {
+test.describe.serial('home page', () => {
 	test('loads and shows scan form', async ({ page }) => {
 		await page.goto('/');
 
