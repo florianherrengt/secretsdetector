@@ -1,8 +1,15 @@
 import { z } from 'zod';
 import type { Context, Next } from 'hono';
 import { getSession } from './index.js';
+import { resolveUserByApiKey } from './apiKeys.js';
+import { extractBearerToken } from './crypto.js';
 
 type SessionUser = Awaited<ReturnType<typeof getSession>>;
+
+// `sessionUser` and `user` mean the same thing for session auth, but for API
+// key auth we set only `user` (there is no session). Callers that need to know
+// which transport authenticated the request can read `authMethod`.
+export type AuthMethod = 'session' | 'api_key';
 
 export const isResponse = z
 	.function()
@@ -37,23 +44,55 @@ export const getSessionContextUser = z
 			return existingSessionUser;
 		}
 
+		// Try session cookie first, then fall back to an Authorization: Bearer
+		// API key. They produce the same user-context shape, so downstream
+		// `requireAuth`/handlers stay transport-agnostic.
 		const sessionId = extractSessionId(c);
 
-		if (!sessionId) {
-			c.set('sessionId', null);
+		if (sessionId) {
+			const sessionUser = await getSession(sessionId);
+			c.set('sessionId', sessionId);
+			c.set('sessionUser', sessionUser);
+			c.set('authMethod', 'session' satisfies AuthMethod);
+
+			if (sessionUser) {
+				c.set('user', sessionUser);
+			}
+
+			return sessionUser;
+		}
+
+		c.set('sessionId', null);
+
+		const bearer = extractBearerToken(c.req.header('authorization'));
+
+		if (!bearer) {
 			c.set('sessionUser', null);
 			return null;
 		}
 
-		const sessionUser = await getSession(sessionId);
-		c.set('sessionId', sessionId);
-		c.set('sessionUser', sessionUser);
+		const apiKeyUser = await resolveUserByApiKey(bearer);
 
-		if (sessionUser) {
-			c.set('user', sessionUser);
+		if (!apiKeyUser) {
+			c.set('sessionUser', null);
+			return null;
 		}
 
-		return sessionUser;
+		const userContext = {
+			userId: apiKeyUser.userId,
+			email: apiKeyUser.email,
+			stripeCustomerId: apiKeyUser.stripeCustomerId,
+		};
+
+		// API key auth has no session; leave sessionUser null so session-scoped
+		// helpers (CSRF token lookup, logout) know there is no session to act
+		// on. The user context is what handlers actually consume.
+		c.set('sessionUser', null);
+		c.set('user', userContext);
+		c.set('authMethod', 'api_key' satisfies AuthMethod);
+		c.set('apiKeyId', apiKeyUser.keyId);
+
+		return userContext;
 	});
 
 export const sessionContextMiddleware = z
@@ -71,8 +110,9 @@ export const requireAuth = z
 	.returns(z.promise(z.instanceof(Response)))
 	.implement(async (c, next) => {
 		const sessionId = extractSessionId(c);
+		const bearer = extractBearerToken(c.req.header('authorization'));
 
-		if (!sessionId) {
+		if (!sessionId && !bearer) {
 			return c.json(
 				{
 					error:

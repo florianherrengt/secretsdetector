@@ -186,3 +186,32 @@ export const sessions = pgTable(
 		};
 	},
 );
+
+// Long-lived bearer tokens that authenticate programmatic clients as the
+// owning user. The raw key is shown to the user exactly once at creation time
+// and never stored — only its SHA-256 hash is persisted. `prefix` holds the
+// first 12 chars of the raw key (e.g. "sw_abcd1234") so the settings UI can
+// help the user identify a key without revealing it.
+export const apiKeys = pgTable(
+	'api_keys',
+	{
+		id: uuid('id').primaryKey(),
+		userId: uuid('user_id')
+			.notNull()
+			// eslint-disable-next-line custom/no-raw-functions
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		keyHash: text('key_hash').notNull().unique(),
+		prefix: text('prefix').notNull(),
+		lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+		revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+	},
+	// eslint-disable-next-line custom/no-raw-functions
+	(table) => {
+		return {
+			apiKeysKeyHashIdx: uniqueIndex('api_keys_key_hash_idx').on(table.keyHash),
+			apiKeysUserIdIdx: index('api_keys_user_id_idx').on(table.userId),
+		};
+	},
+);

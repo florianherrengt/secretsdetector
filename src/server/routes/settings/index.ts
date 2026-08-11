@@ -6,6 +6,7 @@ import { settingsPagePropsSchema, SettingsPage } from '../../../views/pages/sett
 import { buildConfirmUrl } from '../confirmQuerySchema.js';
 import { createConfirmHandlers } from '../confirmHandlerFactory.js';
 import { deleteAccount } from '../../auth/index.js';
+import { createApiKey, listApiKeys, revokeApiKey, apiKeyNameSchema } from '../../auth/apiKeys.js';
 import { getEmailProvider } from '../../email/index.js';
 import { requireAuth, extractSessionId } from '../../auth/middleware.js';
 import { validateCsrfToken } from '../../csrf/validateCsrf.js';
@@ -77,6 +78,40 @@ export const resetBillingPortalRateLimitStateForTests = z
 
 settingsRoutes.use('*', requireAuth);
 
+// Cookie name for one-time display of a freshly created API key. HttpOnly +
+// SameSite=Lax so it is unreachable from JS and not sent on cross-site
+// requests. Short Max-Age: it only needs to survive the POST→302→GET round
+// trip. The GET handler clears it as soon as the key is rendered.
+const NEW_API_KEY_COOKIE = 'new_api_key';
+const NEW_API_KEY_COOKIE_OPTIONS = 'Path=/settings; HttpOnly; SameSite=Lax';
+
+const buildApiKeyEntriesForView = z
+	.function()
+	.args(z.string().uuid())
+	.returns(
+		z.promise(
+			z.array(
+				z.object({
+					id: z.string().uuid(),
+					name: z.string(),
+					prefix: z.string(),
+					createdAtIso: z.string(),
+					lastUsedIso: z.string().nullable(),
+				}),
+			),
+		),
+	)
+	.implement(async (userId) => {
+		const rows = await listApiKeys(userId);
+		return rows.map((row) => ({
+			id: row.id,
+			name: row.name,
+			prefix: row.prefix,
+			createdAtIso: row.createdAt.toISOString(),
+			lastUsedIso: row.lastUsedAt ? row.lastUsedAt.toISOString() : null,
+		}));
+	});
+
 settingsRoutes.get(
 	'/',
 	z
@@ -86,6 +121,15 @@ settingsRoutes.get(
 		.implement(async (c) => {
 			const user = c.get('user');
 			const flashMessage = c.get('flash');
+
+			// Drain the one-time API key cookie. Absent for normal page loads.
+			const newlyCreatedApiKey = c.req
+				.header('cookie')
+				?.match(new RegExp(`${NEW_API_KEY_COOKIE}=([^;]+)`))?.[1];
+			const decodedNewKey = newlyCreatedApiKey
+				? safeDecodeCookieValue(newlyCreatedApiKey)
+				: undefined;
+
 			const viewProps = settingsPagePropsSchema.parse({
 				email: user.email,
 				message: flashMessage ?? undefined,
@@ -98,9 +142,89 @@ settingsRoutes.get(
 					'/settings',
 				),
 				csrfToken: c.get('csrfToken'),
+				apiKeys: await buildApiKeyEntriesForView(user.userId),
+				newlyCreatedApiKey: decodedNewKey,
+				createApiKeyActionUrl: '/settings/api-keys',
+				revokeApiKeyActionUrlBase: '/settings/api-keys',
 			});
 
+			if (newlyCreatedApiKey) {
+				// Set the clear-cookie BEFORE c.html builds the Response — headers
+				// tracked on the context are applied when the Response is created.
+				c.header(`Set-Cookie`, `${NEW_API_KEY_COOKIE}=; ${NEW_API_KEY_COOKIE_OPTIONS}; Max-Age=0`, {
+					append: true,
+				});
+			}
+
 			return c.html(render(SettingsPage, viewProps));
+		}),
+);
+
+const safeDecodeCookieValue = z
+	.function()
+	.args(z.string())
+	.returns(z.string())
+	.implement((value) => {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	});
+
+settingsRoutes.post(
+	'/api-keys',
+	validateCsrfToken,
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			const user = c.get('user');
+			const body = await c.req.parseBody();
+			const parsedName = apiKeyNameSchema.safeParse(typeof body.name === 'string' ? body.name : '');
+
+			if (!parsedName.success) {
+				setFlashMessage(c, 'Please provide a name for the API key (1–80 characters).');
+				return c.redirect('/settings', 302);
+			}
+
+			const created = await createApiKey(user.userId, parsedName.data);
+
+			c.header(
+				'Set-Cookie',
+				`${NEW_API_KEY_COOKIE}=${encodeURIComponent(created.rawKey)}; ${NEW_API_KEY_COOKIE_OPTIONS}; Max-Age=60`,
+				{ append: true },
+			);
+
+			return c.redirect('/settings', 303);
+		}),
+);
+
+const revokeParamsSchema = z.object({
+	id: z.string().uuid(),
+});
+
+settingsRoutes.post(
+	'/api-keys/:id',
+	validateCsrfToken,
+	z
+		.function()
+		.args(z.custom<Context>())
+		.returns(z.promise(z.instanceof(Response)))
+		.implement(async (c) => {
+			const user = c.get('user');
+			const parsedParams = revokeParamsSchema.safeParse({ id: c.req.param('id') });
+
+			if (!parsedParams.success) {
+				setFlashMessage(c, 'Invalid API key.');
+				return c.redirect('/settings', 302);
+			}
+
+			const didRevoke = await revokeApiKey(user.userId, parsedParams.data.id);
+
+			setFlashMessage(c, didRevoke ? 'API key revoked.' : 'API key not found.');
+			return c.redirect('/settings', 302);
 		}),
 );
 
