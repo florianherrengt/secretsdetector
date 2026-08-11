@@ -417,7 +417,7 @@ export const createScanForDomainId = z
 		const { enqueueScanJob } = await import('./scanQueue.js');
 
 		try {
-			await enqueueScanJob(scanRecord.id, jobPayload);
+			await enqueueScanJob(randomUUID(), jobPayload);
 		} catch (error) {
 			await markScanAsFailed(scanRecord.id);
 			const normalizedError = error instanceof Error ? error : new Error('Unknown enqueue error');

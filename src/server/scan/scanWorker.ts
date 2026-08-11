@@ -123,10 +123,7 @@ const processScanQueueJob = z
 		try {
 			// Load the previous cache defensively — any error (missing table,
 			// parse failure, etc.) should fall back to a full scan, not break it.
-			// Skip in debug/e2e mode to isolate scan-pipeline issues.
-			const previousCache = process.env.DEBUG_ENDPOINT
-				? null
-				: await getAssetSnapshot(domainId).catch(() => null);
+			const previousCache = await getAssetSnapshot(domainId).catch(() => null);
 			const pipelineResult = await scanDomain({
 				domain,
 				previousCache: previousCache ?? undefined,
