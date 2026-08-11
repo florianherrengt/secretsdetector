@@ -1011,23 +1011,28 @@ export const scanDomain = z
 		// conditional requests. If every asset still returns 304, the findings
 		// are guaranteed identical — skip the entire fetch + check pipeline.
 		// The worker keeps the existing findings in the DB and just bumps the
-		// scan timestamp.
+		// scan timestamp. Wrapped in try-catch so a probe error never blocks
+		// the full scan — the cache is an optimization, not a dependency.
 		if (input.previousCache) {
-			const probeResult = await probeAssetCache(input.previousCache, semaphore, baseHost);
+			try {
+				const probeResult = await probeAssetCache(input.previousCache, semaphore, baseHost);
 
-			if (probeResult.unchanged) {
-				const empty = getEmptyDiscoveryOutput();
+				if (probeResult.unchanged) {
+					const empty = getEmptyDiscoveryOutput();
 
-				return {
-					status: 'success',
-					checks: [],
-					findings: [],
-					discoveredSubdomains: empty.subdomains,
-					discoveryStats: empty.stats,
-					subdomainAssetCoverage: [],
-					assetsUnchanged: true,
-					assetCache: probeResult.refreshedCache,
-				};
+					return {
+						status: 'success',
+						checks: [],
+						findings: [],
+						discoveredSubdomains: empty.subdomains,
+						discoveryStats: empty.stats,
+						subdomainAssetCoverage: [],
+						assetsUnchanged: true,
+						assetCache: probeResult.refreshedCache,
+					};
+				}
+			} catch {
+				// Probe failed — fall through to full scan
 			}
 		}
 

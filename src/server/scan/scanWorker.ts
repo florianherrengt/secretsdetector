@@ -121,7 +121,9 @@ const processScanQueueJob = z
 		}
 
 		try {
-			const previousCache = await getAssetSnapshot(domainId);
+			// Load the previous cache defensively — any error (missing table,
+			// parse failure, etc.) should fall back to a full scan, not break it.
+			const previousCache = await getAssetSnapshot(domainId).catch(() => null);
 			const pipelineResult = await scanDomain({
 				domain,
 				previousCache: previousCache ?? undefined,
